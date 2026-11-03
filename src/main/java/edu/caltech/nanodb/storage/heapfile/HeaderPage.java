@@ -53,21 +53,21 @@ public class HeaderPage {
      * The offset in the header page where the size of the table schema is
      * stored.  This value is an unsigned short.
      */
-    public static final int OFFSET_SCHEMA_SIZE = 2;
+    public static final int OFFSET_SCHEMA_SIZE = 10;
 
 
     /**
      * The offset in the header page where the size of the table statistics
      * are stored.  This value is an unsigned short.
      */
-    public static final int OFFSET_STATS_SIZE = 4;
+    public static final int OFFSET_STATS_SIZE = 12;
 
 
     /**
      * The offset in the header page where the table schema starts.  This
      * value is an unsigned short.
      */
-    public static final int OFFSET_SCHEMA_START = 6;
+    public static final int OFFSET_SCHEMA_START = 14;
 
 
     /**

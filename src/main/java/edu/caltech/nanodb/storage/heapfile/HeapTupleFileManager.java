@@ -61,6 +61,7 @@ public class HeapTupleFileManager implements TupleFileManager {
         HeapTupleFile tupleFile = new HeapTupleFile(storageManager, this,
             dbFile, schema, stats);
         saveMetadata(tupleFile);
+        new FreeSpaceMap(storageManager, dbFile).initialize();
         return tupleFile;
     }
 
@@ -70,8 +71,8 @@ public class HeapTupleFileManager implements TupleFileManager {
 
         logger.info("Opening existing heap tuple file " + dbFile);
 
-        // Table schema is stored into the header page, so get it and prepare
-        // to write out the schema information.
+        new FreeSpaceMap(storageManager, dbFile).pageCount();
+        // Validate the new disk-format marker before decoding the schema.
         DBPage headerPage = storageManager.loadDBPage(dbFile, 0);
         try {
         PageReader hpReader = new PageReader(headerPage);
