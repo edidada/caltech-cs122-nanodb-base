@@ -11,17 +11,33 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import edu.caltech.nanodb.expressions.TupleLiteral;
+import edu.caltech.nanodb.expressions.LiteralValue;
+import edu.caltech.nanodb.plannodes.FileScanNode;
+import edu.caltech.nanodb.queryeval.QueryEvaluator;
+import edu.caltech.nanodb.queryeval.TupleProcessor;
+import edu.caltech.nanodb.relations.Schema;
+import edu.caltech.nanodb.relations.TableInfo;
 import edu.caltech.nanodb.relations.Tuple;
 import edu.caltech.nanodb.server.CommandResult;
 import edu.caltech.nanodb.server.NanoDBServer;
 import edu.caltech.nanodb.storage.FilePointer;
 import edu.caltech.nanodb.storage.PageTuple;
 import edu.caltech.nanodb.storage.TupleFile;
+import edu.caltech.nanodb.storage.DBPage;
 
 /** Direct storage calls deliberately bypass the server's end-command unpin
  * safety net, so leaked storage pins cannot be hidden by SQL cleanup. */
 @Test(groups = {"hw1"})
 public class TestIndexedHeap {
+    private void assertNoPins(NanoDBServer server, TupleFile file) {
+        server.getStorageManager().getBufferManager().writeAll(false);
+        for (int page = 0; page < file.getDBFile().getNumPages(); page++) {
+            DBPage data = server.getStorageManager().loadDBPage(file.getDBFile(), page);
+            Assert.assertEquals(data.getPinCount(), 1, "Leaked pin on page " + page);
+            data.unpin();
+        }
+    }
+
     private NanoDBServer start(Path dir, int cache) throws Exception {
         Properties props = new Properties();
         props.setProperty("nanodb.baseDirectory", dir.toString());
@@ -110,6 +126,7 @@ public class TestIndexedHeap {
                 count++;
             }
             Assert.assertEquals(count, rows);
+            assertNoPins(server, file);
         }
         finally { Assert.assertTrue(server.shutdown()); }
     }
@@ -145,6 +162,42 @@ public class TestIndexedHeap {
                 release(tuple);
                 if (n % 19 == 0) server.getStorageManager().flushAllData();
             }
+        }
+        finally { Assert.assertTrue(server.shutdown()); }
+    }
+
+    public void testPlanRejectionAndProcessorExceptionReleasePins() throws Exception {
+        Path dir = Files.createTempDirectory("hw1-query-pins-");
+        NanoDBServer server = start(dir, 65536);
+        try {
+            sql(server, "CREATE TABLE h (id INTEGER) PROPERTIES (pagesize=512);");
+            TableInfo table = server.getStorageManager().getTableManager().openTable("h");
+            TupleFile file = table.getTupleFile();
+            for (int i = 0; i < 500; i++) release(file.addTuple(new TupleLiteral(i)));
+            FileScanNode rejecting = new FileScanNode(table, new LiteralValue(false));
+            rejecting.prepare();
+            rejecting.initialize();
+            Assert.assertNull(rejecting.getNextTuple());
+            rejecting.cleanUp();
+            assertNoPins(server, file);
+            FileScanNode scanning = new FileScanNode(table, null);
+            scanning.prepare();
+            final boolean[] cleaned = {false};
+            final IllegalStateException failure = new IllegalStateException("processor sentinel");
+            try {
+                QueryEvaluator.executePlan(scanning, new TupleProcessor() {
+                    public void setSchema(Schema schema) { }
+                    public void process(Tuple tuple) {
+                        Assert.assertEquals(tuple.getColumnValue(0), 0);
+                        throw failure;
+                    }
+                    public void finish() { cleaned[0] = true; }
+                });
+                Assert.fail("Expected processor exception");
+            }
+            catch (IllegalStateException e) { Assert.assertSame(e, failure); }
+            Assert.assertFalse(cleaned[0], "finish is only called on success");
+            assertNoPins(server, file);
         }
         finally { Assert.assertTrue(server.shutdown()); }
     }
