@@ -75,18 +75,18 @@ public class HeapTupleFileManager implements TupleFileManager {
         // Validate the new disk-format marker before decoding the schema.
         DBPage headerPage = storageManager.loadDBPage(dbFile, 0);
         try {
-        PageReader hpReader = new PageReader(headerPage);
-        // Skip past the page-size value.
-        hpReader.setPosition(HeaderPage.OFFSET_SCHEMA_START);
+            PageReader hpReader = new PageReader(headerPage);
+            // Skip past the page-size value.
+            hpReader.setPosition(HeaderPage.OFFSET_SCHEMA_START);
 
-        // Read in the schema details.
-        SchemaWriter schemaWriter = new SchemaWriter();
-        Schema schema = schemaWriter.readSchema(hpReader);
+            // Read in the schema details.
+            SchemaWriter schemaWriter = new SchemaWriter();
+            Schema schema = schemaWriter.readSchema(hpReader);
 
-        // Read in the statistics.
-        TableStats stats = StatsWriter.readTableStats(hpReader, schema);
+            // Read in the statistics.
+            TableStats stats = StatsWriter.readTableStats(hpReader, schema);
 
-        return new HeapTupleFile(storageManager, this, dbFile, schema, stats);
+            return new HeapTupleFile(storageManager, this, dbFile, schema, stats);
         }
         finally {
             headerPage.unpin();
@@ -117,25 +117,25 @@ public class HeapTupleFileManager implements TupleFileManager {
         // to write out the schema information.
         DBPage headerPage = storageManager.loadDBPage(dbFile, 0);
         try {
-        PageWriter hpWriter = new PageWriter(headerPage);
-        // Skip past the page-size value.
-        hpWriter.setPosition(HeaderPage.OFFSET_SCHEMA_START);
+            PageWriter hpWriter = new PageWriter(headerPage);
+            // Skip past the page-size value.
+            hpWriter.setPosition(HeaderPage.OFFSET_SCHEMA_START);
 
-        // Write out the schema details now.
-        SchemaWriter schemaWriter = new SchemaWriter();
-        schemaWriter.writeSchema(schema, hpWriter);
+            // Write out the schema details now.
+            SchemaWriter schemaWriter = new SchemaWriter();
+            schemaWriter.writeSchema(schema, hpWriter);
 
-        // Compute and store the schema's size.
-        int schemaEndPos = hpWriter.getPosition();
-        int schemaSize = schemaEndPos - HeaderPage.OFFSET_SCHEMA_START;
-        HeaderPage.setSchemaSize(headerPage, schemaSize);
+            // Compute and store the schema's size.
+            int schemaEndPos = hpWriter.getPosition();
+            int schemaSize = schemaEndPos - HeaderPage.OFFSET_SCHEMA_START;
+            HeaderPage.setSchemaSize(headerPage, schemaSize);
 
-        // Write in empty statistics, so that the values are at least
-        // initialized to something.
-        StatsWriter.writeTableStats(schema, stats, hpWriter);
-        int statsSize = hpWriter.getPosition() - schemaEndPos;
-        HeaderPage.setStatsSize(headerPage, statsSize);
-        storageManager.logDBPageWrite(headerPage);
+            // Write in empty statistics, so that the values are at least
+            // initialized to something.
+            StatsWriter.writeTableStats(schema, stats, hpWriter);
+            int statsSize = hpWriter.getPosition() - schemaEndPos;
+            HeaderPage.setStatsSize(headerPage, statsSize);
+            storageManager.logDBPageWrite(headerPage);
         }
         finally {
             headerPage.unpin();

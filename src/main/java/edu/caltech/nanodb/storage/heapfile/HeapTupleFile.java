@@ -165,27 +165,27 @@ public class HeapTupleFile implements TupleFile {
         }
 
         try {
-        // The file-pointer points to the slot for the tuple, not the tuple itself.
-        // So, we need to look up that slot's value to get to the tuple data.
+            // The file-pointer points to the slot for the tuple, not the tuple itself.
+            // So, we need to look up that slot's value to get to the tuple data.
 
-        int slot;
-        try {
-            slot = DataPage.getSlotIndexFromOffset(dbPage, fptr.getOffset());
-        }
-        catch (IllegalArgumentException iae) {
-            throw new InvalidFilePointerException(iae);
-        }
+            int slot;
+            try {
+                slot = DataPage.getSlotIndexFromOffset(dbPage, fptr.getOffset());
+            }
+            catch (IllegalArgumentException iae) {
+                throw new InvalidFilePointerException(iae);
+            }
 
-        // Pull the tuple's offset from the specified slot, and make sure
-        // there is actually a tuple there!
+            // Pull the tuple's offset from the specified slot, and make sure
+            // there is actually a tuple there!
 
-        int offset = DataPage.getSlotValue(dbPage, slot);
-        if (offset == DataPage.EMPTY_SLOT) {
-            throw new InvalidFilePointerException("Slot " + slot +
-                " on page " + fptr.getPageNo() + " is empty.");
-        }
+            int offset = DataPage.getSlotValue(dbPage, slot);
+            if (offset == DataPage.EMPTY_SLOT) {
+                throw new InvalidFilePointerException("Slot " + slot +
+                    " on page " + fptr.getPageNo() + " is empty.");
+            }
 
-        return new HeapFilePageTuple(schema, dbPage, slot, offset);
+            return new HeapFilePageTuple(schema, dbPage, slot, offset);
         }
         finally {
             dbPage.unpin();
@@ -263,20 +263,20 @@ public class HeapTupleFile implements TupleFile {
         DBPage dbPage = storageManager.loadDBPage(dbFile, pageNo);
 
         try {
-        int slot = DataPage.allocNewTuple(dbPage, tupSize);
-        int tupOffset = DataPage.getSlotValue(dbPage, slot);
+            int slot = DataPage.allocNewTuple(dbPage, tupSize);
+            int tupOffset = DataPage.getSlotValue(dbPage, slot);
 
-        logger.debug(String.format(
-            "New tuple will reside on page %d, slot %d.", pageNo, slot));
+            logger.debug(String.format(
+                "New tuple will reside on page %d, slot %d.", pageNo, slot));
 
-        HeapFilePageTuple pageTup =
-            HeapFilePageTuple.storeNewTuple(schema, dbPage, slot, tupOffset, tup);
+            HeapFilePageTuple pageTup =
+                HeapFilePageTuple.storeNewTuple(schema, dbPage, slot, tupOffset, tup);
 
-        DataPage.sanityCheck(dbPage);
-        storageManager.logDBPageWrite(dbPage);
-        freeSpaceMap.update(dbPage);
+            DataPage.sanityCheck(dbPage);
+            storageManager.logDBPageWrite(dbPage);
+            freeSpaceMap.update(dbPage);
 
-        return pageTup;
+            return pageTup;
         }
         finally {
             dbPage.unpin();
@@ -302,15 +302,15 @@ public class HeapTupleFile implements TupleFile {
         HeapFilePageTuple ptup = (HeapFilePageTuple) tup;
 
         try {
-        for (Map.Entry<String, Object> entry : newValues.entrySet()) {
-            String colName = entry.getKey();
-            Object value = entry.getValue();
+            for (Map.Entry<String, Object> entry : newValues.entrySet()) {
+                String colName = entry.getKey();
+                Object value = entry.getValue();
 
-            int colIndex = schema.getColumnIndex(colName);
-            ptup.setColumnValue(colIndex, value);
-        }
+                int colIndex = schema.getColumnIndex(colName);
+                ptup.setColumnValue(colIndex, value);
+            }
 
-        DataPage.sanityCheck(ptup.getDBPage());
+            DataPage.sanityCheck(ptup.getDBPage());
         }
         finally {
             storageManager.logDBPageWrite(ptup.getDBPage());

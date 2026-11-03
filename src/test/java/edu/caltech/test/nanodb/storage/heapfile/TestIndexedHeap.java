@@ -62,7 +62,7 @@ public class TestIndexedHeap {
         FilePointer[] pointers = new FilePointer[rows];
         NanoDBServer server = start(dir, cache);
         try {
-            sql(server, "CREATE TABLE h (id INTEGER, text VARCHAR(450)) " +
+            sql(server, "CREATE TABLE h (id INTEGER, payload VARCHAR(450)) " +
                 "PROPERTIES (pagesize=" + size + ");");
             TupleFile file = server.getStorageManager().getTableManager()
                 .openTable("h").getTupleFile();

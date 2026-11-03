@@ -10,19 +10,27 @@ A1.  Briefly describe (1-3 sentences) how you reclaim slot entries in the
      slotted page.  Which slot entries are you able to reclaim?  Which
      entries are unable to be reclaimed?
 
+Answer: Only trailing EMPTY_SLOT entries are truncated. Interior holes are reused without renumbering live slots; tuple bytes are compacted and physical offsets adjusted.
+
 A2.  Briefly outline the steps of what your setNullColumnValue() function
      does.  You don't have to go into much detail; we can look at your
      code for the details.  Just describe the basic things the function
      must do to set a column-value to NULL.
 
+Answer: If already NULL, return. Otherwise delete the old encoded value, advance the tuple start, set the NULL bit, and recompute cached column offsets and end offset.
+
 A3.  Similarly, briefly outline the steps of what your
      setNonNullColumnValue() function does.
+
+Answer: Compute old/new encoded sizes. Insert or delete their difference at the column start, adjust the tuple start and write address, clear the NULL bit, encode the value, and recompute offsets.
 
 B:  Unpinning Tuples and Pages
 ------------------------------
 
 B1.  Briefly describe your strategy for determining when tuples need to be
      unpinned.  Make sure to comment on both plan-nodes and commands.
+
+Answer: A consumer owns each tuple returned by a plan. QueryEvaluator releases it in finally after processing (including exceptions); SelectNode releases rejected tuples. Returned tuples remain pinned for the next consumer. Commands using QueryEvaluator inherit this policy.
 
 B2.  In general, you only need to worry about unpinning tuples because the
      backing page will also be unpinned.  However, there are some situations
@@ -31,6 +39,8 @@ B2.  In general, you only need to worry about unpinning tuples because the
      why you do so.  (Make sure to answer this question in the context of
      your insert-optimization changes, not the initial state of the code.)
 
+Answer: Temporary loadDBPage pins are released in finally after creating a returned PageTuple (which has its own pin), after metadata reads/writes, and after root/leaf map access. Scans release pages on every path. Direct storage tests check pin counts before SQL cleanup can hide leaks.
+
 C:  NanoDB Storage Performance
 ------------------------------
 
@@ -38,25 +48,39 @@ C1.  In 3-6 sentences, describe your general approach for improving the
      performance of inserts, including what general file-level structuring
      you use of blocks.
 
+Answer: Use a persistent two-level exact free-space map. Page 0 stores format/count/schema/stats, page 1 is the root, and each leaf precedes K=S/2 data pages. Leaf entries store insertion capacities; root entries store leaf maxima. Search the first fitting group then its first fitting data page, otherwise append. Scans skip directories, and all capacities survive reopen without TableStats or RAM hints.
+
 C2.  Does your file-level organization have the potential to increase the
      number of large disk seeks when performing inserts?  What steps do
      you take, if any, to reduce the number of disk seeks?
+
+Answer: Yes: directory and data accesses can move the file head apart. Keeping a tiny root plus packed leaves bounds the number of directory page accesses and avoids the original full-file insertion scan. This is not a guarantee of fewer seeks for every tiny workload; full benchmark counters are reported in reports/hw1.md.
 
 C3.  The storage layer records a number of statistics, e.g. pagesRead,
      pagesWritten, fileChanges, and fileDistanceTraveled.  What changes in
      these statistics did your team observe after changing the heap-file
      implementation?  Explain why you believe these to be improvements.
 
+Answer: Full official 20k, 50k, 50k-delete first-fit/map measurements are running on GitHub Actions. No performance numbers are claimed yet; replace this answer with verified counters before marking HW1 complete.
+
 C4.  Describe your criteria for when a page is considered to be "full."
+
+Answer: A page fits a tuple iff free bytes plus two bytes when an empty slot exists is at least tuple bytes plus two. Otherwise it is full for that tuple size, but can still fit a smaller tuple. Root/leaf zero is not chosen for a positive required size.
 
 C5.  What steps must be taken during a tuple-delete operation to update
      your file-level structures?  How many pages must be written to?
 
+Answer: Compact data and reclaim trailing empty slots, recompute capacity in its leaf, and refresh the root maximum. At most three pages are modified: data, leaf, and root; an unchanged maximum leaves root clean.
+
 C6.  What steps must be taken after a tuple-insert operation that fills
      the data page?
 
+Answer: Update the leaf capacity and root maximum immediately, so the next insertion does not search a known insufficient page. Append a data page only when no existing entry fits; a new leaf and header page count are maintained at group boundaries.
+
 C7.  An update operation has the potential to grow or shrink a page.  How
      does your code ensure that updates are handled properly?
+
+Answer: updateTuple refreshes the map in finally after column operations, including growth/shrink/NULL changes and partial updates before an exception. PageTuple adjusts the actual packed bytes and offsets. Growth beyond the current data page throws; cross-page forwarding and transactional atomicity belong outside this assignment implementation.
 
 E:  Feedback [OPTIONAL]
 -----------------------
