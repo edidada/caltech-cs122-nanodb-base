@@ -17,14 +17,14 @@ def expected(path):
         if not line or line == "EXIT;":
             continue
         statements += 1
-        insert = re.fullmatch(r"INSERT INTO insert_perf VALUES \((\d+), '(.*)', ([\d.]+)\);", line)
+        insert = re.fullmatch(r"INSERT INTO insert_perf VALUES \((\d+), '(.*)', ([-+\d.eE]+)\);", line)
         if insert:
             key, text, number = insert.groups()
             binary = struct.pack('>f', float(number))
             rows[int(key)] = (text, struct.unpack('>f', binary)[0],
                               struct.unpack('>i', binary)[0])
         else:
-            delete = re.fullmatch(r"DELETE FROM insert_perf WHERE num >= ([\d.]+) AND num <= ([\d.]+);", line)
+            delete = re.fullmatch(r"DELETE FROM insert_perf WHERE num >= ([-+\d.eE]+) AND num <= ([-+\d.eE]+);", line)
             if not delete:
                 raise ValueError(f"Unrecognized SQL: {line}")
             low, high = map(float, delete.groups())
@@ -58,9 +58,12 @@ def main():
             path = current / 'schemas/insert-perf' / workload
             run = subprocess.run(['java', '-Xmx1g', f'-Dlog4j.configurationFile={config}',
                                   '-cp', cp, 'Hw1Benchmark', str(path)],
-                                 capture_output=True, text=True, check=True, timeout=1800)
+                                 capture_output=True, text=True, timeout=1800)
             (output / f'{label}-{workload}.stdout').write_text(run.stdout)
             (output / f'{label}-{workload}.stderr').write_text(run.stderr)
+            if run.returncode:
+                raise RuntimeError(f'{label}/{workload}: exit {run.returncode}\n'
+                                   f'{run.stderr[-8000:]}\n{run.stdout[-8000:]}')
             data = json.loads(run.stdout.strip())
             count, statements, digest = expected(path)
             assert (data['rows'], data['statements'], data['rowsSha256']) == (count, statements, digest), data
