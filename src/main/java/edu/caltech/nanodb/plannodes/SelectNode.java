@@ -100,8 +100,17 @@ public abstract class SelectNode extends PlanNode {
 
             // If we found a tuple that satisfies the predicate, break out of
             // the loop!
-            if (isTupleSelected(currentTuple))
+            boolean selected;
+            try {
+                selected = isTupleSelected(currentTuple);
+            }
+            catch (RuntimeException | Error e) {
+                currentTuple.unpin();
+                throw e;
+            }
+            if (selected)
                 break;
+            currentTuple.unpin();
         }
 
         // The current tuple now satisfies the predicate, so return it.

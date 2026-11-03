@@ -176,6 +176,7 @@ page_scan:  // So we can break out of the outer loop from inside the inner one
                 fptr.getPageNo(), dbFile.getDataFile().getName()));
         }
 
+        try {
         // The file-pointer points to the slot for the tuple, not the tuple itself.
         // So, we need to look up that slot's value to get to the tuple data.
 
@@ -197,6 +198,10 @@ page_scan:  // So we can break out of the outer loop from inside the inner one
         }
 
         return new HeapFilePageTuple(schema, dbPage, slot, offset);
+        }
+        finally {
+            dbPage.unpin();
+        }
     }
 
 
@@ -269,13 +274,17 @@ page_scan:  // So we can break out of the outer loop from inside the inner loop.
             // tuples.  Go on to the next data-page, and start with the first
             // tuple in that page.
 
-            dbPage = storageManager.loadDBPage(dbFile, dbPage.getPageNo() + 1);
+            int nextPageNo = dbPage.getPageNo() + 1;
+            dbPage.unpin();
+            dbPage = storageManager.loadDBPage(dbFile, nextPageNo);
             if (dbPage == null)
                 break;  // Hit EOF with no more tuples.  Done scanning.
 
             nextSlot = 0;
         }
 
+        if (dbPage != null)
+            dbPage.unpin();
         return nextTup;
     }
 
@@ -310,7 +319,7 @@ page_scan:  // So we can break out of the outer loop from inside the inner loop.
         // Sanity check:  Make sure that the tuple would actually fit in a page
         // in the first place!
         // The "+ 2" is for the case where we need a new slot entry as well.
-        if (tupSize + 2 > dbFile.getPageSize()) {
+        if (tupSize + 4 > dbFile.getPageSize()) {
             throw new TupleFileException("Tuple size " + tupSize +
                 " is larger than page size " + dbFile.getPageSize() + ".");
         }
@@ -344,6 +353,7 @@ page_scan:  // So we can break out of the outer loop from inside the inner loop.
 
             // If we reached this point then the page doesn't have enough
             // space, so go on to the next data page.
+            dbPage.unpin();
             pageNo++;
         }
 
@@ -357,6 +367,7 @@ page_scan:  // So we can break out of the outer loop from inside the inner loop.
             DataPage.initNewPage(dbPage);
         }
 
+        try {
         int slot = DataPage.allocNewTuple(dbPage, tupSize);
         int tupOffset = DataPage.getSlotValue(dbPage, slot);
 
@@ -369,6 +380,10 @@ page_scan:  // So we can break out of the outer loop from inside the inner loop.
         DataPage.sanityCheck(dbPage);
 
         return pageTup;
+        }
+        finally {
+            dbPage.unpin();
+        }
     }
 
 

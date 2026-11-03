@@ -598,7 +598,14 @@ public class DataPage {
                 " slots, but slot " + slot + " was requested for deletion.");
         }
 
-        // TODO:  Complete this implementation.
-        throw new UnsupportedOperationException("TODO:  Implement!");
+        int offset = getSlotValue(dbPage, slot);
+        if (offset == EMPTY_SLOT)
+            throw new IllegalArgumentException("Slot " + slot + " is already empty");
+        int length = getTupleLength(dbPage, slot);
+        deleteTupleDataRange(dbPage, offset, length);
+        setSlotValue(dbPage, slot, EMPTY_SLOT);
+        while (numSlots > 0 && getSlotValue(dbPage, numSlots - 1) == EMPTY_SLOT)
+            numSlots--;
+        setNumSlots(dbPage, numSlots);
     }
 }

@@ -496,29 +496,14 @@ public abstract class PageTuple implements Tuple {
      * @param iCol the index of the column to set to <tt>NULL</tt>
      */
     private void setNullColumnValue(int iCol) {
-        /* TODO:  Implement!
-         *
-         * The column's flag in the tuple's null-bitmap must be set to true.
-         * Also, the data occupied by the column's value must be removed.
-         * There are many helpful methods that can be used for this method:
-         *  - isNullValue() and setNullFlag() to check/change the null-bitmap
-         *  - deleteTupleDataRange() to remove part of a tuple's data
-         *
-         * You will have to examine the column's type as well; you can use
-         * the schema.getColumnInfo(iCol) method to determine the column's
-         * type; schema.getColumnInfo(iCol).getType() to get the basic SQL
-         * data type.  If the column is a variable-size column (e.g. VARCHAR)
-         * then you may need to retrieve details from the column itself using
-         * the dbPage member, and the getStorageSize() field.
-         *
-         * Finally, the valueOffsets array is extremely important, because it
-         * contains the starting offset of every non-NULL column's data in the
-         * tuple.  Setting a column's value to NULL will obviously affect at
-         * least some of the value-offsets.  Make sure to update this array
-         * properly as well.  (Note that columns whose value is NULL will have
-         * the special NULL_OFFSET constant as their offset in the tuple.)
-         */
-        throw new UnsupportedOperationException("TODO:  Implement!");
+        if (isNullValue(iCol))
+            return;
+        int offset = valueOffsets[iCol];
+        int size = getColumnValueSize(schema.getColumnInfo(iCol).getType(), offset);
+        deleteTupleDataRange(offset, size);
+        pageOffset += size;
+        setNullFlag(iCol, true);
+        computeValueOffsets();
     }
 
 
@@ -537,33 +522,28 @@ public abstract class PageTuple implements Tuple {
         if (value == null)
             throw new IllegalArgumentException("value cannot be null");
 
-        /* TODO:  Implement!
-         *
-         * This time, the column's flag in the tuple's null-bitmap must be set
-         * to false (if it was true before).
-         *
-         * The trick is to figure out the size of the old column-value, and
-         * the size of the new column-value, so that the right amount of space
-         * can be made available for the new value.  If the column is a fixed-
-         * size type (e.g. an INTEGER) then this is easy, but if the column is
-         * a variable-size type (e.g. VARCHAR) then this will be more
-         * involved.  As before, retrieving the column's type will be important
-         * in implementing the method:  schema.getColumnInfo(iCol), and then
-         * schema.getColumnInfo(iCol).getType() to get the basic type info.
-         * You can use the getColumnValueSize() method to determine the size
-         * of a value as well.
-         *
-         * As before, the valueOffsets array is extremely important to use and
-         * modify correctly, so take care in how you manage it.
-         *
-         * The tuple's data in the page starts at the offset returned by the
-         * getDataStartOffset() method; this is the offset past the tuple's
-         * null-bitmask.
-         *
-         * Finally, once you have made space for the new column value, you can
-         * write the value itself using the writeNonNullValue() method.
-         */
-        throw new UnsupportedOperationException("TODO:  Implement!");
+        ColumnType type = schema.getColumnInfo(iCol).getType();
+        int oldSize = isNullValue(iCol) ? 0 :
+            getColumnValueSize(type, valueOffsets[iCol]);
+        int length = type.getBaseType() == SQLDataType.VARCHAR ?
+            TypeConverter.getStringValue(value).length() : 0;
+        int newSize = getStorageSize(type, length);
+        int offset = getDataStartOffset();
+        for (int i = 0; i < iCol; i++) {
+            if (!isNullValue(i))
+                offset += getColumnValueSize(schema.getColumnInfo(i).getType(),
+                    valueOffsets[i]);
+        }
+        int delta = newSize - oldSize;
+        if (delta > 0)
+            insertTupleDataRange(offset, delta);
+        else if (delta < 0)
+            deleteTupleDataRange(offset, -delta);
+        pageOffset -= delta;
+        offset -= delta;
+        setNullFlag(iCol, false);
+        writeNonNullValue(dbPage, offset, type, value);
+        computeValueOffsets();
     }
 
 

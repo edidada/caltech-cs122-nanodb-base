@@ -42,7 +42,12 @@ public class QueryEvaluator {
                 rowsProduced++;
 
                 // Do whatever we're supposed to do with the tuple
-                processor.process(tuple);
+                try {
+                    processor.process(tuple);
+                }
+                finally {
+                    tuple.unpin();
+                }
             }
         }
         finally {
