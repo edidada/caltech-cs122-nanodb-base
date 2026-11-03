@@ -6,4 +6,6 @@
 
 工作分支 `edidada/cs122-labs`。保留现有 Maven 单工程布局，设置 release17、补充等价 Gradle 构建，ANTLR生成器与运行库统一4.7.1；升级适配JDK17的编译器、Surefire、JaCoCo及Mockito，Log4j固定2.25.2。原始 pom 的 testFailureIgnore=true 改为 false，保留全部原始作业测试组作为默认值。基线CI显式仅选 framework/parser，不将排除的作业测试当成通过。
 
+首轮 Maven 的138项基础/解析器测试通过；verify 随后暴露上游 JaCoCo check 绑定缺少 rules。去掉这个没有配置规则的绑定，保留 agent/覆盖率报告，不虚构覆盖率门槛，也不把首轮整体构建记为成功。
+
 独立工作流 starter-build.yml 在 Actions 运行 Maven 和 Gradle 原始基础/解析器测试，后续每个作业另建实验分支、yml和报告。当前只验证构建起点和既有基础代码，不计本人完成任何CS122作业。生成关键词仍调用官方 Python 脚本。本地未编译或运行NanoDB。原始框架没有拆分服务器子模块，避免仅为形式上的多模块重排上游源码。

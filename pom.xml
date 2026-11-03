@@ -205,12 +205,9 @@
                         </goals>
                     </execution>
 
-                    <execution>
-                        <id>default-check</id>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                    </execution>
+                    <!-- No coverage rules were specified by the starter.
+                         Keep agent/report generation without binding an
+                         unconfigured check goal or inventing a zero threshold. -->
 
                     <!--
                      Extra config to ensure we get a report after testing,
