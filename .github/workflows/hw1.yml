@@ -6,7 +6,7 @@ on:
 permissions:
   contents: read
 jobs:
-  baseline:
+  storage:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -18,12 +18,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Maven original framework and parser tests
+      - name: Maven framework, parser, original HW1 and added storage tests
         run: mvn --batch-mode -Dnanodb.test.groups=framework,parser,hw1 verify
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.14.3'
-      - name: Gradle original framework and parser tests
+      - name: Gradle framework, parser, original HW1 and added storage tests
         run: gradle --no-daemon -PtestGroups=framework,parser,hw1 test
       - uses: actions/upload-artifact@v4
         if: always()
@@ -32,3 +32,26 @@ jobs:
           path: |
             target/surefire-reports/
             build/test-results/
+  performance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: d93810fc433c948a2f4ff701e28a96319096745a
+          path: first-fit-baseline
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Full official 20k, 50k and 50k-delete SQL benchmarks
+        run: python scripts/hw1_performance.py --baseline first-fit-baseline
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hw1-full-performance
+          path: target/hw1-performance/

@@ -126,10 +126,11 @@ final class FreeSpaceMap {
         int leafNo = 2 + group * (fanout + 1);
         int entry = page - leafNo - 1;
         int maximum = 0;
+        int entries = Math.min(fanout, pageCount() - leafNo - 1);
         DBPage leaf = storage.loadDBPage(file, leafNo);
         try {
             leaf.writeShort(entry * 2, capacity);
-            for (int i = 0; i < fanout; i++)
+            for (int i = 0; i < entries; i++)
                 maximum = Math.max(maximum, leaf.readUnsignedShort(i * 2));
             storage.logDBPageWrite(leaf);
         }
