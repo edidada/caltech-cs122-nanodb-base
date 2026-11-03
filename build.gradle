@@ -1,0 +1,45 @@
+plugins { id 'java' }
+group = 'edu.caltech.nanodb'
+version = '0.1-SNAPSHOT'
+repositories { mavenCentral() }
+java { toolchain { languageVersion = JavaLanguageVersion.of(17) } }
+configurations { antlrGenerator }
+dependencies {
+    antlrGenerator 'org.antlr:antlr4:4.7.1'
+    implementation 'org.antlr:antlr4:4.7.1'
+    implementation 'commons-cli:commons-cli:1.4'
+    implementation 'org.apache.logging.log4j:log4j-api:2.25.2'
+    implementation 'org.apache.logging.log4j:log4j-core:2.25.2'
+    testImplementation 'org.testng:testng:6.14.3'
+    testImplementation 'commons-io:commons-io:2.6'
+    testImplementation 'org.mockito:mockito-core:3.12.4'
+}
+def generatedParser = layout.buildDirectory.dir('generated/sources/antlr')
+tasks.register('generateKeywords', Exec) {
+    workingDir 'src/main/antlr4/imports'
+    commandLine 'python3', 'make_ci.py', 'Keywords.g4.in'
+    inputs.files 'src/main/antlr4/imports/make_ci.py', 'src/main/antlr4/imports/Keywords.g4.in'
+    outputs.file 'src/main/antlr4/imports/Keywords.g4'
+}
+tasks.register('generateParser', JavaExec) {
+    dependsOn 'generateKeywords'
+    classpath = configurations.antlrGenerator
+    mainClass = 'org.antlr.v4.Tool'
+    inputs.files fileTree('src/main/antlr4') { include '**/*.g4' }
+    outputs.dir generatedParser
+    doFirst {
+        args = ['-visitor', '-listener', '-package', 'edu.caltech.nanodb.sqlparse',
+                '-lib', file('src/main/antlr4/imports').absolutePath,
+                '-o', generatedParser.get().asFile.absolutePath,
+                file('src/main/antlr4/edu/caltech/nanodb/sqlparse/NanoSQL.g4').absolutePath]
+    }
+}
+sourceSets.main.java.srcDir generatedParser
+tasks.named('compileJava') { dependsOn 'generateParser' }
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8'; options.release = 17 }
+tasks.named('test') {
+    useTestNG {
+        includeGroups providers.gradleProperty('testGroups').getOrElse('framework,parser,hw1,hw2,hw5,hw6').split(',')
+    }
+    systemProperty 'log4j.configurationFile', file('log4j2.properties').absolutePath
+}

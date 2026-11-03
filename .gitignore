@@ -4,3 +4,11 @@ test_datafiles
 .idea
 target
 *.log
+
+.DS_Store
+._*
+__MACOSX/
+.gradle/
+build/
+__pycache__/
+*.pyc
