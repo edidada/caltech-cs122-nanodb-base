@@ -26,7 +26,20 @@ import edu.caltech.nanodb.storage.TupleFileManager;
 
 
 /**
- * This class implements the TupleFile interface for heap files.
+ * This class implements the TupleFile interface for indexed heap files.
+ *
+ * <p>HW1 disk format: page 0 holds a version marker, persistent physical-page
+ * count, schema and statistics. Page 1 is the free-space root. With page size
+ * S and K=S/2, leaf g is physical page 2+g*(K+1); its next K pages are ordinary
+ * slotted data pages. An unsigned-short leaf entry stores free bytes plus two
+ * when an existing empty slot can be reused; root entries store leaf maxima.
+ * Allocation searches a fitting root/leaf entry rather than reading each data
+ * page. Inserts, deletes and updates refresh the leaf and root on disk, without
+ * using TableStats or a process-local allocation cursor. Scans and file-pointer
+ * lookups exclude directory pages. Legacy unversioned files must be recreated.
+ * See FreeSpaceMap and reports/hw1.md for the physical layout and I/O tradeoffs.
+ * All temporary page pins are released; returned tuples own one data-page pin.
+ * </p>
  */
 public class HeapTupleFile implements TupleFile {
 

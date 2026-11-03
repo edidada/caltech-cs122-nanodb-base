@@ -24,6 +24,7 @@ import edu.caltech.nanodb.storage.FilePointer;
 import edu.caltech.nanodb.storage.PageTuple;
 import edu.caltech.nanodb.storage.TupleFile;
 import edu.caltech.nanodb.storage.DBPage;
+import edu.caltech.nanodb.storage.TupleFileException;
 
 /** Direct storage calls deliberately bypass the server's end-command unpin
  * safety net, so leaked storage pins cannot be hidden by SQL cleanup. */
@@ -71,6 +72,54 @@ public class TestIndexedHeap {
         // A 450-character row fits once in a 512-byte page. 620 rows cross
         // two 256-data-page directory boundaries, under the minimum 64KiB cache.
         scenario(512, 620, 65536);
+    }
+
+    public void testFull65536PhysicalPageAddressSpace() throws Exception {
+        Path dir = Files.createTempDirectory("hw1-page-limit-");
+        NanoDBServer server = start(dir, 65536);
+        FilePointer last = null;
+        final int rows = 65536 - 2 - 255; // header, root, 255 leaves
+        try {
+            sql(server, "CREATE TABLE h (id INTEGER, payload VARCHAR(450)) " +
+                "PROPERTIES (pagesize=512);");
+            TupleFile file = server.getStorageManager().getTableManager()
+                .openTable("h").getTupleFile();
+            for (int i = 0; i < rows; i++) {
+                Tuple tuple = file.addTuple(new TupleLiteral(i, "z".repeat(450)));
+                last = tuple.getExternalReference();
+                release(tuple);
+            }
+            Assert.assertEquals(last.getPageNo(), 65535);
+            try {
+                file.addTuple(new TupleLiteral(rows, "z".repeat(450)));
+                Assert.fail("Expected physical-page limit rejection");
+            }
+            catch (TupleFileException expected) {
+                Assert.assertTrue(expected.getMessage().contains("65536"));
+            }
+            server.getStorageManager().flushAllData();
+            Assert.assertEquals(file.getDBFile().getNumPages(), 65536);
+            Assert.assertEquals(file.getDBFile().getFileSize(), 65536L * 512);
+        }
+        finally { Assert.assertTrue(server.shutdown()); }
+        server = start(dir, 65536);
+        try {
+            TupleFile file = server.getStorageManager().getTableManager()
+                .openTable("h").getTupleFile();
+            Tuple tuple = file.getTuple(last);
+            Assert.assertEquals(tuple.getColumnValue(0), rows - 1);
+            release(tuple);
+            // Even at the limit, deleting and reinserting must reuse capacity.
+            tuple = file.getTuple(last);
+            file.deleteTuple(tuple);
+            release(tuple);
+            tuple = file.addTuple(new TupleLiteral(rows, "r".repeat(450)));
+            Assert.assertEquals(tuple.getExternalReference(), last);
+            release(tuple);
+            server.getStorageManager().flushAllData();
+            Assert.assertEquals(file.getDBFile().getNumPages(), 65536);
+        }
+        finally { Assert.assertTrue(server.shutdown()); }
     }
 
     private void scenario(int size, int rows, int cache) throws Exception {
