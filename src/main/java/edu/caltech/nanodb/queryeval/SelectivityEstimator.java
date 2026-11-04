@@ -55,6 +55,8 @@ public final class SelectivityEstimator {
         CompareOperator comparison=(CompareOperator)original.duplicate();
         comparison.normalize();
         Expression left=comparison.getLeftExpression(), right=comparison.getRightExpression();
+        if (left instanceof LiteralValue && right instanceof LiteralValue)
+            return comparison.evaluatePredicate() ? 1 : 0;
         if (index(left,schema)>=0 && right instanceof LiteralValue) {
             int index=index(left,schema);
             if (index<0) return DEFAULT_SELECTIVITY;

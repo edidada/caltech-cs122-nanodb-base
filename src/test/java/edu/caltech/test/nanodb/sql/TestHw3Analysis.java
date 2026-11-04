@@ -48,7 +48,12 @@ public class TestHw3Analysis extends SqlTestCase {
         tryDoCommand("CREATE TABLE analyzed_pages (a INTEGER, b VARCHAR(450)) PROPERTIES (pagesize=512);");
         TupleFile file=file("analyzed_pages");
         for(int i=0;i<600;i++) {Tuple tuple=file.addTuple(new TupleLiteral(i,"x".repeat(450)));tuple.unpin();}
+        server.getStorageManager().flushAllData();
+        edu.caltech.nanodb.server.performance.PerformanceCounters.clearAll();
         file.analyze();
+        Assert.assertTrue(edu.caltech.nanodb.server.performance.PerformanceCounters.get(
+            edu.caltech.nanodb.server.performance.PerformanceCounters.STORAGE_PAGES_READ)<=602,
+            "ANALYZE should read each data page once plus header access");
         Assert.assertEquals(file.getStats().numDataPages,600);
         Assert.assertEquals(file.getStats().numTuples,600);
         Assert.assertEquals(file.getStats().avgTupleSize,457f);
