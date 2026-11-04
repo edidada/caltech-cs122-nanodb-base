@@ -1,54 +1,39 @@
-# CS122 HW5：高级子查询（实现进行中）
+# CS122 HW5：高级子查询实验报告
 
-分支 `edidada/hw5`，从 HW4 未验收提交 `e8e6b01c6a6a4041d01c2af74aae65feb6169b14` 建立，**HW4 和 HW5 均不能登记为完成**。依据 [官方 Lab5](https://courses.cms.caltech.edu/cs122/assignments/lab5.html)；本次实际下载官方说明并核对要求，没有读取社区答案。
+依据 [Caltech Winter2019 Lab5](https://courses.cms.caltech.edu/cs122/assignments/lab5.html)，分支 `edidada/hw5`。代码基线 `bda39cc061e685e9ced61f67f63863fe5c2a567b` 已通过 [Actions 41852074922](https://github.com/edidada/caltech-cs122-nanodb-base/actions/runs/41852074922)：JDK17 Maven/Gradle 各244项测试，零失败、零跳过，包含全部 framework/parser/HW1～HW5；完整 stores-28K 的13条查询执行成功。学校私有评分及正式提交未执行。以下实现范围与实际测试相对应，不宣称完整 SQL 标准兼容。
 
-## 完整范围与当前证据
+## 规划与相关求值
 
-| 官方要求 | 当前实现 / 缺项 | 验收状态 |
-| --- | --- | --- |
-| ExpressionPlanner 实现 ExpressionProcessor，复用当前 Planner，完整 Javadoc | 已新增递归遍历，复用当前 Planner，含字段/方法 Javadoc | 待运行 |
-| SELECT、WHERE、HAVING 内嵌子查询规划 | 已接入共享规划器私有表达式副本及成本规划器合取项 | 待运行 |
-| GROUP BY、ORDER BY 子查询明确拒绝，检测不污染其他子句 | 已实现无共享状态的子句拒绝遍历及独立拒绝用例 | 待运行 |
-| 相关求值及环境层级连接 | 已接入动态外层环境桥接及相关列类型元数据 | 待运行 |
-| 子查询表达式成本及相关计划节点更新 | 已实现表达式复杂度、子查询 CPU/I/O/seek 及扫描/过滤/投影/连接累计 | 待运行 |
-| 设计题、原有 SQL 测试及历史实验回归 | hw5.yml 已准备 JDK17 Maven/Gradle，包含 framework/parser/HW1～HW5 及 HW4 完整数据实验；尚未执行 | 未验收 |
+ExpressionPlanner 实现 ExpressionProcessor，为当前私有表达式内每个 SubqueryOperator 复用现有 Planner 递归生成计划，不混入子查询内部遍历。类、字段及方法均有 Javadoc。共享 AbstractPlannerImpl 保存当前词法 SELECT，递归返回时用 finally 恢复；SELECT/HAVING 在聚合提取前规划，WHERE 在扫描/过滤条件构造时规划，CostBasedJoinPlanner 的私有合取项走相同路径。GROUP BY、ORDER BY 使用独立无状态遍历拒绝子查询；JOIN ON 内嵌子查询也明确拒绝，属于官方允许的限制。
 
-## 本次实现的运算符基础
+每个子计划通过独立环境桥挂到全部物理节点；每次 Scalar/IN/EXISTS 求值前把桥的父环境替换成当前表达式求值环境。不累计历史父环境，不保留旧外部行；嵌套调用通过环境链访问祖父层，局部别名优先。相关列保留词法外层类型元数据，投影不把缺失本地列的 -1 下标当作有效统计位置。
 
-IN 每次求值重新初始化子计划，逐行按照 SQL 三值逻辑比较：明确匹配优先于 UNKNOWN；NULL 与非空集合可能产生 UNKNOWN；空集合为 FALSE，NOT IN 对明确真假取反而不反转 UNKNOWN。多列比较中某一列明确不等即整行不等，即使其他列含 NULL。左右列数不等明确报错。提前找到匹配、读到末尾、列数异常或读取失败均清理子计划，取出的每行在 finally 中 unpin。
+AST 类型推断为非 wildcard 表达式加入已解析外层列的类型，本地 FROM schema 和 SELECT * 展开仍只含本地列。实测覆盖无 FROM 相关算术投影 SELECT a.k,(SELECT a.k+1)，以及 SELECT/WHERE/HAVING、相关 MAX、EXISTS/NOT EXISTS、IN/NOT IN、祖父层引用和别名遮蔽。
 
-IN 的 equals/hashCode 现在区分 IN 和 NOT IN；duplicate 深复制每个左操作数，避免后续遍历重写克隆表达式时修改原表达式。子查询 AST 仍沿用框架的共享引用约定，计划隔离须在 ExpressionPlanner 中进一步处理，不能据此声称完整 AST 深复制。
+## 执行合同和异常
 
-标量子查询每次重新求值，不保留跨外部行缓存；先复制第一行列值再继续读取，避免可复用 tuple 对象被推进操作覆盖。保留本框架“恰好一行一列”的既有错误契约，零行仍报错；不宣称已经实现标准 SQL 的零行返回 NULL。成功、列数/行数错误、读取异常统一释放行和清理子计划。EXISTS 在正常提前返回和读取异常时均执行清理。
+IN/NOT IN 使用 SQL 三值比较，明确匹配优先于 UNKNOWN；NULL 不与 NULL 判为相等；空集合始终得出明确真假，多列某一列明确不等则该行不匹配。列数不等报错。提前匹配、读完、列数异常和读取失败均释放已取出行并清理子计划。
 
-新增 `TestHw5SubqueryOperators` 使用可观察初始化/清理/行释放的合成输入，覆盖标量重新求值、零行/多行/多列错误，IN/NOT IN 的空集、NULL、多列和数字类型转换、提前匹配、宽度与读取异常，以及克隆重写隔离；EXISTS 覆盖空集、提前退出和读取异常。这些是执行层合同检查，不能代替 SQL 规划、相关环境和成本验证。
+标量子查询每次重新执行，先复制第一行列值再推进，以适配复用 tuple 对象的节点。保留框架和原测试约定的“恰好一行一列”：零行、多行、多列报 ExpressionException，经 SQL 命令包装为 ExecutionException 并保留 cause；这不同于标准 SQL 标量零行返回 NULL，不掩盖该兼容限制。EXISTS 的正常提前返回和读取异常均清理资源。
 
-## 验证与发布限制
+IN 的 equals/hashCode 区分取反，duplicate 深复制左操作数；BooleanOperator 改为深复制各合取项，避免规划一个布尔树副本时给原 AST 的子查询挂计划。实测包含原 AST 保持不变、相同 AST 重复规划得到独立计划、当前环境逐行重新绑定。子查询 SelectClause 仍采用框架的共享只读引用约定，不声称实现完整 AST 深克隆。
 
-仅完成源码检查和 `git diff --check`，没有在本地编译或执行测试。新增工作流发布仍需已有登录的 workflow 权限，最新 langnote Actions 41849415306 又在分配 runner 前被账户付款/额度限制拒绝。未修改付费设置、未使用付费执行资源，未以旧实验 CI 替代本分支验证。
+## 成本模型
 
-后续必须完成表中全部必需项，补全设计题，发布后读取实际失败日志并修复，直到最终 SHA 的 Maven、Gradle、SQL 集成、相关查询与成本实验均有真实结果。装饰性附加优化、去相关和物化缓存属于可选扩展，未实现，不计入完成情况。
+ExpressionCostCalculator 对每个表达式节点计1 CPU，遇到已规划子查询累计全部 CPU、块I/O、大寻道；不重复遍历内部表达式。未规划子查询报错。当前没有结果缓存，相关和非相关查询均按预计调用次数计费，完整子计划费用是保守估算，不预测短路或 EXISTS/IN 提前终止。
 
-## 子查询规划接入（尚未执行）
+扫描按原始表行数、过滤和投影按输入行数、连接谓词按候选行对数计费，保留原基础节点开销。磁盘费用乘调用次数后向上取整；零次调用不增加费用。无 FROM 投影复制基础成本，重复 prepare 重新计算而不累加历史成本。
 
-新增 ExpressionPlanner：遍历私有表达式，遇到 SubqueryOperator 时调用当前 Planner.makePlan 递归生成计划，子查询块本身不混入当前表达式遍历。共享规划器保存当前词法 SELECT，并在递归返回时用 finally 恢复；SELECT/HAVING 在聚合提取前规划，WHERE 在构造扫描/过滤条件时规划。成本规划器同样为每个私有合取项规划子查询。GROUP BY、ORDER BY 使用独立无状态遍历拒绝，JOIN ON 也明确拒绝内嵌子查询（官方允许的可选限制）。
+成本测试覆盖表达式复杂度、子查询费用、分数行I/O取整、零行、成本防御副本、过滤/投影重复 prepare、无 FROM 投影及未规划子查询拒绝；SQL 测试在同一新模型下比较语法顺序与优化计划，优化计划成本更低。HW3 数字断言及 HW4 的独立24顺序标量枚举同步适配表达式节点费用，历史测试组没有删减。
 
-每个已规划子查询新增独立外层环境桥，桥挂到子计划所有物理节点。每次 Scalar/IN/EXISTS 求值前将桥的单一父环境替换成当前表达式所在节点的环境，不累计历次调用、不复用过期行；更深层子查询通过同一链条追溯祖父环境。相关列使用词法外层 schema 的类型，投影统计无法在当前输入找到位置时使用未知统计，不把 -1 当列下标。Expression.SymbolFinder 在只查询“是否有符号”时避免向 null 集合加入相关列。
+## 实际数据和验收范围
 
-新增 TestHw5Planning 三组 SQL 集成用例：无 FROM 标量聚合、WHERE 与 HAVING 非相关子查询；逐行相关 MAX、EXISTS/NOT EXISTS、IN/NOT IN；祖父层引用和内层别名遮蔽。均未执行，也未据此声称通过。现有 AST schema 计算阶段对直接投影外层列的支持还需核查，类型桥的规划阶段实现不能替代该阶段的证明；更复杂分组相关性仍需扩展覆盖。
+完整数据 states/cities/stores/employees 分别51/254/2000/24932行；员工 manager 列的空值4259和NDV11754保留。全部13查询与既有 HW3 结果完整哈希一致：join 两种写法74行，Oregon 各变体7行，范围变体179行。表/条件顺序变体核心连接计划一致。全部 SQL、EXPLAIN、行数、成本、时长、哈希及代码/CI来源见 [hw5-results.json](hw5-results.json)。
 
-表达式成本累计和计划节点成本更新仍未实现，拒绝子句与重复规划独立性用例尚待补齐。最终验收仍必须满足本报告完整范围，不以这次规划接入缩小 HW5 要求。
+新模型 Oregon CPU 为61,473.418；它不能直接与旧 HW3/HW4 模型数字推导加速比。HW5 工作流显式使用 --updated-expression-costs，保留完整数据与结果检查，仅替换跨模型CPU比较为同一模型下规划器比较。
 
-## 成本模型与剩余验收（本次实现，未执行）
+首轮远端检查实际修复了受检异常漏声明、普通表叶误用连接接口、BooleanOperator 浅克隆污染 AST 和 SQL 表达式异常包装。Maven 与 Gradle 的最终244项均已通过；报告提交后还需核对最终 HEAD 的完整 CI。所有 Java 编译和实验均在 Actions，本地只进行源码/JSON/XML审查、Python AST 和 git diff --check。
 
-ExpressionCostCalculator 每进入一个表达式节点计1 CPU，并累计已准备子查询的全部 CPU、块I/O、大寻道；子查询内部表达式已计入子计划，不再次向内部遍历。未规划子查询明确报错，不能默认为廉价表达式。模型保守按完整执行估算，不预测短路、EXISTS/IN 提前返回或缓存命中；当前无相关/非相关结果缓存，两者均按调用次数计算。
+官方要求的朴素子查询、相关环境、成本及设计题已有实现和公开验证。可选去相关、半连接、反连接和物化缓存未实现，不计额外完成。该公开自测不替代学校私有 grader。
 
-FileScan 按原始表行数、SimpleFilter 按子节点输入行数、Project 按输入行数累计表达式费用；原有扫描/过滤/投影开销保留。NestedLoop 也按候选行对数累计，因为优化器可能把含子查询的多表谓词放在连接处。I/O 与 seek 按汇总费用乘预计调用次数后向上取整；零次调用不增加成本。无 FROM 投影复制基础 PlanCost，避免追加表达式成本时污染 inputCost。重复 prepare 应从子节点重新计算，不累加历史调用的费用。
-
-历史结果哈希仍可比较，但 HW3 的 CPU 数字与当前模型不是同一单位。HW5 工作流调用完整数据驱动时显式使用 --updated-expression-costs，保留全部数据/结果哈希/列统计/查询顺序检查，停止仅针对旧模型的 Oregon CPU 数字断言；原 HW4 分支工作流不受影响。新增同一模型下 SimplePlanner 与 CostBasedJoinPlanner 的 CPU 比较，且检查原 AST 不被规划修改及重复生成独立计划。HW3 固定成本断言与 HW4 的24顺序独立枚举相应加入表达式节点计数，没有移除历史测试组。
-
-新增 TestHw5ExpressionCosts 验证表达式树复杂度、子查询费用、半次调用的向上取整、零行、返回成本副本、过滤/投影重复 prepare、无 FROM 投影、未规划子查询拒绝和独立子句拒绝。合成输入只用于隔离成本算术，不能替代 SQL、文件扫描和完整数据执行。
-
-直接外层列投影的前置缺项也已实现：SelectClause 在非 wildcard 表达式类型推断时加入已解析外层列的元数据，但本地 FROM schema 和 wildcard 展开仍保持本地范围；默认表达式命名使用这一类型 schema。新增无 FROM 相关算术投影用例。该实现尚未运行，不将源码路径齐备提升为功能验收。
-
-当前必需实现已有源码与待执行用例，但仍须实际编译、原始 SQL 测试、历史实验回归、重复规划与多层相关边界检查，以及最终 SHA 远端 Maven/Gradle/完整数据执行结果。CI 的 workflow scope 和账户付款/额度障碍仍未解除。本报告早先“尚未实现成本/类型推断”的段落仅记录当时阶段，以本节当前状态为准；HW5 仍未完成。
+此前 CLI OAuth workflow 权限和 langnote 账户额度限制均有真实报错；GitHub 插件恢复后已发布本分支，NanoDB 为公开仓库且实际运行成功，不能再把这些历史障碍写成当前 NanoDB 无法验收的原因。
