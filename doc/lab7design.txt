@@ -14,10 +14,27 @@ A1.  One of your tasks this week was to implement the TransactionManager's
      also be atomic with the obvious caveat that the written sector may still
      be buffered until a sync occurs.)
 
+Answer A1 (implementation unverified): forceWAL includes recordSize when
+computing the exclusive durable end, syncs every required WAL file/page
+range, and only then writes and syncs txnstate.nextLSN. Recovery ignores
+bytes beyond that published boundary. A crash before publication should
+retain the old valid prefix; after successful publication all referenced
+log bytes must already be durable. This argument assumes the task's
+atomic-sector publication premise. Current concurrency/lock ordering,
+file-number wraparound and crash injection are not proved; the current
+implementation is not accepted as fully atomic/durable yet.
+
 A2:  Another task was to implement the beforeWriteDirtyPages() method on the
      TransactionManager.  Your implementation must ensure that the write-ahead
      logging rule is always followed.  What steps do you take to ensure this
      will always happen?  Describe your method's approach.
+
+Answer A2 (unverified): The eviction callback skips WRITE_AHEAD_LOG_FILE
+and TXNSTATE_FILE, rejects every other dirty page without pageLSN, finds
+the maximum LSN of the batch and forces once before returning. Any force
+failure propagates, preventing the caller from continuing the data-page
+write. Excluding log/state files prevents recursive WAL forcing. TEST_FILE
+policy remains strict rather than silently exempting an unlogged data page.
 
 A3:  Actually, if you think about it, NanoDB writes to data pages before it
      emits WAL records describing the changes to those pages.  At a higher level
@@ -26,10 +43,29 @@ A3:  Actually, if you think about it, NanoDB writes to data pages before it
      updated on a heap file's data page.  Your answer should touch on all major
      subsystems that are involved in this operation.
 
+Answer A3 (unverified): Heap insertion/update/delete and free-space-map
+or metadata mutations call StorageManager.logDBPageWrite after the page's
+logical modification. TransactionManager emits a deferred START if needed;
+WALManager stores undo/redo bytes and publishes pageLSN before old-page-data
+is synchronized. Pages remain pinned during mutation/log generation. Before
+BufferManager writes any dirty page, its observer forces the associated WAL
+prefix. COMMIT also forces its record before completing. In-memory writes
+may therefore precede WAL construction, but durable data writes must not.
+The required default transaction-on/flush-after-command-off configuration
+and complete runtime proof are still pending.
+
 A4:  In your current implementation, some pages may not have corresponding
      LSNs associated with them, because they are not logged in the write-ahead
      log.  Enumerate all file types that will have pages not logged in the
      WAL.
+
+Answer A4: WAL pages and txnstate pages are intentionally not WAL-logged.
+Heap data, heap header and HW1 free-space root/leaf pages have log calls.
+BTree writes are not yet comprehensively instrumented in this branch;
+turning transactions on for arbitrary indexed workloads is not verified.
+The callback currently refuses any non-log/state dirty page lacking LSN,
+so this gap cannot be treated as a successful logged write. TEST_FILE is
+also not silently ignored. Full file-type compatibility remains pending.
 
 B:  The txnstate.dat File
 -------------------------
@@ -38,16 +74,38 @@ B1.  The txnstate.dat file records the next transaction ID that the database
      should use when it is restarted.  Why is it important for this to be
      stored and used by the database when it is restarted?
 
+Answer B1: Reusing a transaction ID can associate old incomplete WAL
+records with a new transaction, making completion and undo decisions
+incorrect. Persisting nextTxnID and advancing past the maximum ID observed
+during recovery prevents reuse after restart. ID exhaustion also requires
+an explicit policy; it must not wrap silently into live historical IDs.
+
 B2:  The txnstate.dat file records a "firstLSN" value, which is where recovery
      processing starts from.  What guarantees are made about this firstLSN
      value?  Given these guarantees, will redo processing need any records
      before the firstLSN value?  Will undo processing need any records before
      the firstLSN value?  Justify your answers.
 
+Answer B2: firstLSN is a safe recovery low-water mark: all effects before
+it must already be durable, and no active transaction may require an undo
+record before it. Under those guarantees neither redo nor undo needs an
+earlier record. Current recovery advances it only after all incomplete
+transactions are undone, WAL is forced and all data files are synced.
+A corrupted or incorrectly advanced boundary invalidates those guarantees;
+the implementation rejects incomplete undo at the recovery range end.
+
 B3:  Currently, the "firstLSN" value is only moved forward when recovery
      processing is completed.  Can you describe a strategy for moving forward
      firstLSN during normal operation?  What constraints must be enforced to
      ensure the database continues working properly?  Explain your answers.
+
+Answer B3: One simple strategy stops new transactions, waits for or
+aborts all active transactions, forces WAL, flushes/syncs all data, and
+atomically persists firstLSN=nextLSN. A less blocking strategy must track
+the oldest dirty-page recovery LSN and oldest active transaction's undo
+needs, never advancing beyond either. Publishing the boundary before data
+sync or discarding required undo would lose recovery information. Neither
+normal-operation strategy is implemented as extra credit here.
 
 B4:  The txnstate.dat file's "firstLSN" value is somewhat similar to a
      checkpoint / fuzzy-checkpoint, but it is not quite the same.  Describe
@@ -56,12 +114,27 @@ B4:  The txnstate.dat file's "firstLSN" value is somewhat similar to a
      checkpointing operation, vs. the constraints that NanoDB must enforce
      with firstLSN.
 
+Answer B4: A quiescent checkpoint can flush all dirty data and record an
+empty active set. An ARIES fuzzy checkpoint records active-transaction and
+dirty-page information while writes continue; restart reconstructs a safe
+redo start and undo chains from that metadata. NanoDB persists only first
+and next LSN plus nextTxnID, not a fuzzy checkpoint's dirty-page/transaction
+tables. It therefore cannot merely use the checkpoint record position as
+firstLSN while older undo or dirty-page redo is still required.
+
 C:  Testing
 -----------
 
 C1:  Did you run into any fun, surprising or crazy bugs while you were
      debugging your transaction-processing code?  (It's OK if your answer
      is "no," although Donnie will be dubious...)
+
+Answer C1: No HW7 execution results are available yet. Static inspection
+identified the need to include recordSize, retain exact previous-file ends
+rather than padded file sizes, and skip compensated original updates via
+per-transaction undoNext. These are implementation findings, not reproduced
+runtime bugs. Enabled transaction and subprocess Runtime.halt tests are
+prepared; normal restart tests are not labelled crash-during-recovery tests.
 
 D:  Extra Credit [OPTIONAL]
 ---------------------------
