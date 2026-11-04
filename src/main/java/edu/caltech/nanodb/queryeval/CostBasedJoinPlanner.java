@@ -17,8 +17,18 @@ public class CostBasedJoinPlanner extends AbstractPlannerImpl {
     /** Split private conjunct copies in stable order. */
     private List<Expression> terms(Expression expression) {
         Set<Expression> terms=new LinkedHashSet<>();
-        if(expression!=null)PredicateUtils.collectConjuncts(expression.duplicate(),terms);
+        collectTerms(expression,terms);
         List<Expression> result=new ArrayList<>(terms);result.sort(Comparator.comparing(Object::toString));return result;
+    }
+    /** Parenthesized nested ANDs are still conjunctions; OR/NOT stay opaque. */
+    private void collectTerms(Expression expression,Set<Expression> destination) {
+        if(expression==null)return;
+        if(expression instanceof BooleanOperator &&
+            ((BooleanOperator)expression).getType()==BooleanOperator.Type.AND_EXPR) {
+            BooleanOperator and=(BooleanOperator)expression;
+            for(int i=0;i<and.getNumTerms();i++)collectTerms(and.getTerm(i),destination);
+        }
+        else destination.add(expression.duplicate());
     }
     /** Find expressions evaluable from available columns. */
     private Set<Expression> applicable(Collection<Expression> terms,Schema... schemas) {

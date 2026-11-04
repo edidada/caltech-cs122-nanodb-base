@@ -13,6 +13,14 @@ import edu.caltech.nanodb.relations.*;
 /** Differential execution and plan-shape checks against the retained HW2 planner. */
 @Test(groups={"hw4"})
 public class TestHw4Optimizer extends SqlTestCase {
+    /** Compare the core join rather than the optional public-order projection. */
+    private float joinCpu(PlanNode plan) {
+        String tree=PlanNode.printNodeTreeToString(plan,true);
+        java.util.regex.Matcher match=java.util.regex.Pattern.compile(
+            "NestedLoop[^\\n]*cpuCost=([0-9.E+-]+)").matcher(tree);
+        Assert.assertTrue(match.find(),tree);
+        return Float.parseFloat(match.group(1));
+    }
     private PlanNode plan(String sql,boolean optimized) {
         SelectClause ast=((SelectCommand)server.parseCommand(sql)).getSelectClause();
         ast.computeSchema(server.getStorageManager().getTableManager(),null);
@@ -50,7 +58,7 @@ public class TestHw4Optimizer extends SqlTestCase {
         Float cost=null;
         for(String from:froms) {
             String sql="SELECT a.v,b.v,c.v FROM "+from+" WHERE a.k=b.k AND b.k=c.k AND c.v=1";
-            equivalent(sql);float actual=plan(sql,true).getCost().cpuCost;
+            equivalent(sql);float actual=joinCpu(plan(sql,true));
             if(cost==null)cost=actual;else Assert.assertEquals(actual,cost.floatValue(),.001f);
             equivalent("SELECT * FROM "+from+" WHERE a.k=b.k AND b.k=c.k AND c.v=1");
         }
@@ -73,5 +81,41 @@ public class TestHw4Optimizer extends SqlTestCase {
         equivalent("SELECT * FROM deriveda a,derivedc c WHERE a.v<2 AND c.v<2");
         equivalent("SELECT * FROM deriveda a JOIN deriveda b ON a.k=b.k WHERE a.v=1 AND b.v<4");
         equivalent("SELECT * FROM deriveda a LEFT JOIN derivedb b USING(k) WHERE k=2");
+    }
+
+    /** An independent scalar oracle enumerates all 24 four-table orders.
+     * No optimizer helper or DP implementation is called by the oracle. */
+    public void testFourTableOrderMatchesExhaustiveCostOracle() throws Exception {
+        int[] counts={11,17,5,3};
+        for(int table=0;table<4;table++) {
+            tryDoCommand("CREATE TABLE exhaustive"+table+" (k INTEGER);");
+            for(int row=0;row<counts[table];row++)
+                tryDoCommand("INSERT INTO exhaustive"+table+" VALUES ("+(row%3)+");");
+            tryDoCommand("ANALYZE exhaustive"+table+";");
+        }
+        // Every table has exactly three non-NULL distinct keys. The three
+        // predicates form a chain; an edge becomes available when both of
+        // its endpoints have been joined. CPU = L.cpu + L.rows*R.cpu + pairs.
+        double best=Double.POSITIVE_INFINITY;
+        int permutations=0;
+        for(int a=0;a<4;a++)for(int b=0;b<4;b++)for(int c=0;c<4;c++)for(int d=0;d<4;d++) {
+            if(a==b || a==c || a==d || b==c || b==d || c==d)continue;
+            int[] order={a,b,c,d};boolean[] seen=new boolean[4];seen[a]=true;
+            double rows=counts[a],cpu=counts[a];
+            for(int i=1;i<4;i++) {
+                int next=order[i],edges=0;
+                if(next>0 && seen[next-1])edges++;
+                if(next<3 && seen[next+1])edges++;
+                double pairs=rows*counts[next];
+                cpu+=rows*counts[next]+pairs;
+                rows=pairs/Math.pow(3,edges);seen[next]=true;
+            }
+            best=Math.min(best,cpu);permutations++;
+        }
+        Assert.assertEquals(permutations,24);
+        String sql="SELECT * FROM exhaustive0 a,exhaustive1 b,exhaustive2 c,exhaustive3 d "+
+            "WHERE a.k=b.k AND b.k=c.k AND c.k=d.k";
+        Assert.assertEquals(joinCpu(plan(sql,true)),(float)best,.2f);
+        equivalent(sql);
     }
 }

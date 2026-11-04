@@ -30,7 +30,16 @@ assert queries['oregon_original']['actualRows']==7
 assert queries['range_direct']['actualRows']==179
 for names in [('oregon_original','oregon_order_b','oregon_order_c')]:
     assert len({queries[name]['resultSha256'] for name in names})==1
-    cores=[queries[name]['explain'].split('NestedLoop',1)[1] for name in names]
+    # Public-order restoration projections can differ by original FROM order.
+    # Compare only the canonical join tree, excluding the final summary and
+    # normalizing indentation; retain each complete EXPLAIN in results.json.
+    def core(explanation):
+        tree=explanation.split('\n\nEstimated ',1)[0]
+        lines=tree.splitlines()
+        start=next(i for i,line in enumerate(lines) if 'NestedLoop[' in line)
+        indent=len(lines[start])-len(lines[start].lstrip())
+        return '\n'.join(line[indent:] for line in lines[start:])
+    cores=[core(queries[name]['explain']) for name in names]
     assert len(set(cores))==1, cores
 baseline=json.loads((root/'reports/hw3-results.json').read_text())
 old={q['name']:q for q in baseline['queries']}
