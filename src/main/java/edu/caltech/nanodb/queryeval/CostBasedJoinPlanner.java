@@ -75,13 +75,21 @@ public class CostBasedJoinPlanner extends AbstractPlannerImpl {
         plan.prepare();Set<Expression> above=new LinkedHashSet<>(restrictions);above.removeAll(pushed);
         return filter(plan,above);
     }
-    /** Restore FROM's public column order after physical reordering. */
-    private PlanNode restore(PlanNode plan,Schema expected) {
-        Schema actual=plan.getSchema();boolean same=true;List<SelectValue> values=new ArrayList<>();
-        for(int i=0;i<expected.numColumns();i++) {
-            ColumnInfo column=expected.getColumnInfo(i);int index=actual.getColumnIndex(column.getColumnName());
-            if(index<0)throw new InvalidSQLException("Lost output column "+column);
-            same &= index==i;values.add(new SelectValue(new BoundColumnValue(0,index,column)));
+    /** Restore output positions by leaf identity, not by potentially ambiguous
+     * names (independent USING joins can both expose an unqualified key). */
+    private PlanNode restore(PlanNode plan,Schema expected,List<FromClause> original,
+                             List<FromClause> sorted,String order) {
+        Map<FromClause,Integer> offsets=new IdentityHashMap<>();int offset=0;
+        for(String ordinal:order.split(",")) {
+            FromClause leaf=sorted.get(Integer.parseInt(ordinal));
+            offsets.put(leaf,offset);offset+=leaf.getSchema().numColumns();
+        }
+        if(offset!=expected.numColumns() || offset!=plan.getSchema().numColumns())
+            throw new InvalidSQLException("Join output width changed during reordering");
+        boolean same=true;List<SelectValue> values=new ArrayList<>();int output=0;
+        for(FromClause leaf:original)for(int i=0;i<leaf.getSchema().numColumns();i++) {
+            int index=offsets.get(leaf)+i;ColumnInfo column=expected.getColumnInfo(output);
+            same &= index==output++;values.add(new SelectValue(new BoundColumnValue(0,index,column)));
         }
         if(same)return plan;
         PlanNode result=new ProjectNode(plan,values);result.prepare();return result;
@@ -90,7 +98,8 @@ public class CostBasedJoinPlanner extends AbstractPlannerImpl {
      * their earliest legal node. Equal costs use a stable canonical tie break. */
     private PlanNode makeJoinPlan(FromClause from,Collection<Expression> extra) {
         List<FromClause> clauses=new ArrayList<>();Set<Expression> all=new LinkedHashSet<>(extra);
-        collectDetails(from,clauses,all);clauses.sort(Comparator.comparing(Object::toString));
+        collectDetails(from,clauses,all);List<FromClause> original=new ArrayList<>(clauses);
+        clauses.sort(Comparator.comparing(Object::toString));
         List<JoinComponent> leaves=new ArrayList<>();
         for(int i=0;i<clauses.size();i++) {
             FromClause clause=clauses.get(i);Set<Expression> used=applicable(all,clause.getSchema());
@@ -116,7 +125,7 @@ public class CostBasedJoinPlanner extends AbstractPlannerImpl {
         }
         if(layer.size()!=1)throw new InvalidSQLException("No complete join plan");
         JoinComponent best=layer.values().iterator().next();Set<Expression> unused=new LinkedHashSet<>(all);unused.removeAll(best.used);
-        return restore(filter(best.plan,unused),from.getSchema());
+        return restore(filter(best.plan,unused),from.getSchema(),original,clauses,best.order);
     }
     /** Optimize only FROM/WHERE; all upper SQL clauses remain shared. */
     @Override protected PlanNode buildFromWhere(SelectClause select) {

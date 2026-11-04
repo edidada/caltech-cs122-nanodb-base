@@ -14,7 +14,7 @@ import edu.caltech.nanodb.relations.JoinType;
 import edu.caltech.nanodb.relations.Schema;
 import edu.caltech.nanodb.relations.ColumnInfo;
 
-/** HW2 correctness-first planner; intentionally no cost-based join reordering.
+/** Shared SQL translation for syntax-order and cost-based planners.
  * The AST is read-only: rewritten SELECT/HAVING expressions are private copies,
  * permitting the same parsed query to be planned and evaluated again. */
 public abstract class AbstractPlannerImpl extends SimplestPlanner {
