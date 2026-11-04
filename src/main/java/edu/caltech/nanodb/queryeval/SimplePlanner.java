@@ -11,6 +11,7 @@ import edu.caltech.nanodb.queryast.FromClause;
 import edu.caltech.nanodb.queryast.SelectClause;
 import edu.caltech.nanodb.queryast.SelectValue;
 import edu.caltech.nanodb.relations.JoinType;
+import edu.caltech.nanodb.relations.Schema;
 
 /** HW2 correctness-first planner; intentionally no cost-based join reordering.
  * The AST is read-only: rewritten SELECT/HAVING expressions are private copies,
@@ -36,17 +37,52 @@ public class SimplePlanner extends SimplestPlanner {
                 throw new InvalidSQLException("HW2 does not support " + type);
             Expression predicate = from.getComputedJoinExpr();
             rejectAggregates(predicate, "ON");
-            plan = new NestedLoopJoinNode(from(from.getLeftChild()),
-                from(from.getRightChild()), type,
-                predicate == null ? null : predicate.duplicate());
+            PlanNode left = from(from.getLeftChild());
+            PlanNode right = from(from.getRightChild());
             if (from.getComputedSelectValues() != null)
-                plan = new ProjectNode(plan, from.getComputedSelectValues());
+                plan = mergedJoin(from, left, right);
+            else
+                plan = new NestedLoopJoinNode(left, right, type,
+                    predicate == null ? null : predicate.duplicate());
         }
         else {
             throw new InvalidSQLException("Unsupported FROM clause: " + from);
         }
         if (from.isRenamed()) plan = new RenameNode(plan, from.getResultName());
         return plan;
+    }
+
+    private PlanNode mergedJoin(FromClause from, PlanNode left, PlanNode right) {
+        Schema ls = from.getLeftChild().getSchema();
+        Schema rs = from.getRightChild().getSchema();
+        Schema output = from.getSchema();
+        List<String> keys = from.getConditionType() == FromClause.JoinConditionType.JOIN_USING ?
+            from.getUsingNames() : new ArrayList<>(ls.getCommonColumnNames(rs));
+        BooleanOperator condition = new BooleanOperator(BooleanOperator.Type.AND_EXPR);
+        List<SelectValue> projection = new ArrayList<>();
+        boolean reverse = from.getJoinType() == JoinType.RIGHT_OUTER;
+        int column = 0;
+        for (String key : keys) {
+            int li = ls.getColumnIndex(key), ri = rs.getColumnIndex(key);
+            condition.addTerm(new CompareOperator(CompareOperator.Type.EQUALS,
+                new BoundColumnValue(reverse ? 1 : 0, li, ls.getColumnInfo(li)),
+                new BoundColumnValue(reverse ? 0 : 1, ri, rs.getColumnInfo(ri))));
+            projection.add(new SelectValue(new BoundColumnValue(0,
+                reverse ? ls.numColumns() + ri : li, output.getColumnInfo(column++))));
+        }
+        for (int i = 0; i < ls.numColumns(); i++) {
+            if (!keys.contains(ls.getColumnInfo(i).getName()))
+                projection.add(new SelectValue(new BoundColumnValue(0, i,
+                    output.getColumnInfo(column++))));
+        }
+        for (int i = 0; i < rs.numColumns(); i++) {
+            if (!keys.contains(rs.getColumnInfo(i).getName()))
+                projection.add(new SelectValue(new BoundColumnValue(0, ls.numColumns() + i,
+                    output.getColumnInfo(column++))));
+        }
+        PlanNode join = new NestedLoopJoinNode(left, right, from.getJoinType(),
+            keys.isEmpty() ? null : condition);
+        return new ProjectNode(join, projection);
     }
 
     private static final class GroupReferences implements ExpressionProcessor {
