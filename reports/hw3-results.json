@@ -1,0 +1,290 @@
+{
+  "dataset": "stores-28K.sql",
+  "pageSize": 8192,
+  "tables": [
+    {
+      "name": "states",
+      "rows": 51,
+      "dataPages": 1,
+      "averageTupleBytes": 15.66666698,
+      "columns": [
+        {
+          "name": "state_id",
+          "distinct": 51,
+          "nulls": 0,
+          "min": "1",
+          "max": "51"
+        },
+        {
+          "name": "state_name",
+          "distinct": 51,
+          "nulls": 0,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "name": "cities",
+      "rows": 254,
+      "dataPages": 1,
+      "averageTupleBytes": 23.7874012,
+      "columns": [
+        {
+          "name": "city_id",
+          "distinct": 254,
+          "nulls": 0,
+          "min": "1",
+          "max": "254"
+        },
+        {
+          "name": "city_name",
+          "distinct": 244,
+          "nulls": 0,
+          "min": null,
+          "max": null
+        },
+        {
+          "name": "population",
+          "distinct": 254,
+          "nulls": 0,
+          "min": "100135",
+          "max": "8143197"
+        },
+        {
+          "name": "state_id",
+          "distinct": 44,
+          "nulls": 0,
+          "min": "1",
+          "max": "44"
+        }
+      ]
+    },
+    {
+      "name": "stores",
+      "rows": 2000,
+      "dataPages": 4,
+      "averageTupleBytes": 13.0,
+      "columns": [
+        {
+          "name": "store_id",
+          "distinct": 2000,
+          "nulls": 0,
+          "min": "1",
+          "max": "2000"
+        },
+        {
+          "name": "city_id",
+          "distinct": 254,
+          "nulls": 0,
+          "min": "1",
+          "max": "254"
+        },
+        {
+          "name": "property_costs",
+          "distinct": 882,
+          "nulls": 0,
+          "min": "0",
+          "max": "999000"
+        }
+      ]
+    },
+    {
+      "name": "employees",
+      "rows": 24932,
+      "dataPages": 118,
+      "averageTupleBytes": 36.44224167,
+      "columns": [
+        {
+          "name": "emp_id",
+          "distinct": 24932,
+          "nulls": 0,
+          "min": "1",
+          "max": "24932"
+        },
+        {
+          "name": "last_name",
+          "distinct": 4958,
+          "nulls": 0,
+          "min": null,
+          "max": null
+        },
+        {
+          "name": "first_name",
+          "distinct": 4933,
+          "nulls": 0,
+          "min": null,
+          "max": null
+        },
+        {
+          "name": "home_loc_id",
+          "distinct": 254,
+          "nulls": 0,
+          "min": "1",
+          "max": "254"
+        },
+        {
+          "name": "work_loc_id",
+          "distinct": 254,
+          "nulls": 0,
+          "min": "1",
+          "max": "254"
+        },
+        {
+          "name": "salary",
+          "distinct": 46,
+          "nulls": 0,
+          "min": "35000",
+          "max": "80000"
+        },
+        {
+          "name": "manager_id",
+          "distinct": 11754,
+          "nulls": 4259,
+          "min": "1",
+          "max": "24924"
+        }
+      ]
+    }
+  ],
+  "queries": [
+    {
+      "name": "cities_all",
+      "sql": "SELECT * FROM cities",
+      "estimatedRows": 254.0,
+      "cpuCost": 254.0,
+      "blockIOs": 1,
+      "actualRows": 254,
+      "seconds": 0.00242682,
+      "resultSha256": "5635aefe834f5ef4ff07cc6af9f84d5bbe2d7d1446494741b4f6a22b39fc46e3",
+      "explain": "Explain Plan:\n    FileScan[table:  cities] cost=[tuples=254.0, tupSize=23.8, cpuCost=254.0, blockIOs=1, largeSeeks=1]\n\nEstimated 254.000000 tuples with average size 23.787401\nEstimated number of block IOs:  1\n"
+    },
+    {
+      "name": "cities_1m",
+      "sql": "SELECT * FROM cities WHERE population>1000000",
+      "estimatedRows": 225.58224487,
+      "cpuCost": 254.0,
+      "blockIOs": 1,
+      "actualRows": 9,
+      "seconds": 0.00178846,
+      "resultSha256": "028f03933c23c3b17b75d203e2443c76a8a1b312dffa2ccada2a87d490ce2f0a",
+      "explain": "Explain Plan:\n    FileScan[table:  cities, pred:  cities.population > 1000000] cost=[tuples=225.6, tupSize=23.8, cpuCost=254.0, blockIOs=1, largeSeeks=1]\n\nEstimated 225.582245 tuples with average size 23.787401\nEstimated number of block IOs:  1\n"
+    },
+    {
+      "name": "cities_5m",
+      "sql": "SELECT * FROM cities WHERE population>5000000",
+      "estimatedRows": 99.2621994,
+      "cpuCost": 254.0,
+      "blockIOs": 1,
+      "actualRows": 1,
+      "seconds": 0.00145827,
+      "resultSha256": "8db10723d71d1b3031cb35e7ef7f793e1a37615953c2008f72e4f33d0c8fdf2a",
+      "explain": "Explain Plan:\n    FileScan[table:  cities, pred:  cities.population > 5000000] cost=[tuples=99.3, tupSize=23.8, cpuCost=254.0, blockIOs=1, largeSeeks=1]\n\nEstimated 99.262199 tuples with average size 23.787401\nEstimated number of block IOs:  1\n"
+    },
+    {
+      "name": "cities_8m",
+      "sql": "SELECT * FROM cities WHERE population>8000000",
+      "estimatedRows": 4.52216244,
+      "cpuCost": 254.0,
+      "blockIOs": 1,
+      "actualRows": 1,
+      "seconds": 0.0013333,
+      "resultSha256": "8db10723d71d1b3031cb35e7ef7f793e1a37615953c2008f72e4f33d0c8fdf2a",
+      "explain": "Explain Plan:\n    FileScan[table:  cities, pred:  cities.population > 8000000] cost=[tuples=4.5, tupSize=23.8, cpuCost=254.0, blockIOs=1, largeSeeks=1]\n\nEstimated 4.522162 tuples with average size 23.787401\nEstimated number of block IOs:  1\n"
+    },
+    {
+      "name": "join_original",
+      "sql": "SELECT store_id FROM stores,cities WHERE stores.city_id=cities.city_id AND cities.population>1000000",
+      "estimatedRows": 1776.23815918,
+      "cpuCost": 1527776.25,
+      "blockIOs": 5,
+      "actualRows": 74,
+      "seconds": 0.47626391,
+      "resultSha256": "118a520ef247007918447fa3dda444fdff4baa6049d140d1529fdaa32c4db40f",
+      "explain": "Explain Plan:\n    Project[values:  [stores.store_id]] cost=[tuples=1776.2, tupSize=36.8, cpuCost=1527776.3, blockIOs=5, largeSeeks=2]\n        SimpleFilter[pred:  stores.city_id == cities.city_id AND cities.population > 1000000] cost=[tuples=1776.2, tupSize=36.8, cpuCost=1526000.0, blockIOs=5, largeSeeks=2]\n            NestedLoop[no pred] cost=[tuples=508000.0, tupSize=36.8, cpuCost=1018000.0, blockIOs=5, largeSeeks=2]\n                FileScan[table:  stores] cost=[tuples=2000.0, tupSize=13.0, cpuCost=2000.0, blockIOs=4, largeSeeks=1]\n                FileScan[table:  cities] cost=[tuples=254.0, tupSize=23.8, cpuCost=254.0, blockIOs=1, largeSeeks=1]\n\nEstimated 1776.238159 tuples with average size 36.787399\nEstimated number of block IOs:  5\n"
+    },
+    {
+      "name": "join_rewritten",
+      "sql": "SELECT store_id FROM stores JOIN (SELECT city_id FROM cities WHERE population>1000000) big_cities ON stores.city_id=big_cities.city_id",
+      "estimatedRows": 1776.23815918,
+      "cpuCost": 1414105.25,
+      "blockIOs": 5,
+      "actualRows": 74,
+      "seconds": 0.38602611,
+      "resultSha256": "118a520ef247007918447fa3dda444fdff4baa6049d140d1529fdaa32c4db40f",
+      "explain": "Explain Plan:\n    Project[values:  [stores.store_id]] cost=[tuples=1776.2, tupSize=36.8, cpuCost=1414105.3, blockIOs=5, largeSeeks=2]\n        NestedLoop[pred:  stores.city_id == big_cities.city_id] cost=[tuples=1776.2, tupSize=36.8, cpuCost=1412329.0, blockIOs=5, largeSeeks=2]\n            FileScan[table:  stores] cost=[tuples=2000.0, tupSize=13.0, cpuCost=2000.0, blockIOs=4, largeSeeks=1]\n            Rename[resultTableName=big_cities] cost=[tuples=225.6, tupSize=23.8, cpuCost=479.6, blockIOs=1, largeSeeks=1]\n                Project[values:  [cities.city_id]] cost=[tuples=225.6, tupSize=23.8, cpuCost=479.6, blockIOs=1, largeSeeks=1]\n                    FileScan[table:  cities, pred:  cities.population > 1000000] cost=[tuples=225.6, tupSize=23.8, cpuCost=254.0, blockIOs=1, largeSeeks=1]\n\nEstimated 1776.238159 tuples with average size 36.787399\nEstimated number of block IOs:  5\n"
+    },
+    {
+      "name": "oregon_original",
+      "sql": "SELECT store_id,property_costs FROM stores,cities,states WHERE stores.city_id=cities.city_id AND cities.state_id=states.state_id AND state_name='Oregon' AND property_costs>500000",
+      "estimatedRows": 19.58821678,
+      "cpuCost": 78742016.0,
+      "blockIOs": 6,
+      "actualRows": 7,
+      "seconds": 9.69516504,
+      "resultSha256": "6417fa2aec8b18399a6b018401057751b2535ba8cdceb81ee78b5c74c2d22cd8",
+      "explain": "Explain Plan:\n    Project[values:  [stores.store_id, stores.property_costs]] cost=[tuples=19.6, tupSize=52.5, cpuCost=78742016.0, blockIOs=6, largeSeeks=3]\n        SimpleFilter[pred:  stores.city_id == cities.city_id AND cities.state_id == states.state_id AND states.state_name == 'Oregon' AND stores.property_costs > 500000] cost=[tuples=19.6, tupSize=52.5, cpuCost=78742000.0, blockIOs=6, largeSeeks=3]\n            NestedLoop[no pred] cost=[tuples=25908000.0, tupSize=52.5, cpuCost=52834000.0, blockIOs=6, largeSeeks=3]\n                NestedLoop[no pred] cost=[tuples=508000.0, tupSize=36.8, cpuCost=1018000.0, blockIOs=5, largeSeeks=2]\n                    FileScan[table:  stores] cost=[tuples=2000.0, tupSize=13.0, cpuCost=2000.0, blockIOs=4, largeSeeks=1]\n                    FileScan[table:  cities] cost=[tuples=254.0, tupSize=23.8, cpuCost=254.0, blockIOs=1, largeSeeks=1]\n                FileScan[table:  states] cost=[tuples=51.0, tupSize=15.7, cpuCost=51.0, blockIOs=1, largeSeeks=1]\n\nEstimated 19.588217 tuples with average size 52.454067\nEstimated number of block IOs:  6\n"
+    },
+    {
+      "name": "oregon_rewritten",
+      "sql": "SELECT s.store_id,s.property_costs FROM (SELECT store_id,city_id,property_costs FROM stores WHERE property_costs>500000) s JOIN (SELECT c.city_id FROM cities c JOIN (SELECT state_id FROM states WHERE state_name='Oregon') o ON c.state_id=o.state_id) eligible ON s.city_id=eligible.city_id",
+      "estimatedRows": 19.58821678,
+      "cpuCost": 13715240.0,
+      "blockIOs": 6,
+      "actualRows": 7,
+      "seconds": 4.1051605,
+      "resultSha256": "6417fa2aec8b18399a6b018401057751b2535ba8cdceb81ee78b5c74c2d22cd8",
+      "explain": "Explain Plan:\n    Project[values:  [s.store_id, s.property_costs]] cost=[tuples=19.6, tupSize=52.5, cpuCost=13715240.0, blockIOs=6, largeSeeks=3]\n        NestedLoop[pred:  s.city_id == eligible.city_id] cost=[tuples=19.6, tupSize=52.5, cpuCost=13715220.0, blockIOs=6, largeSeeks=3]\n            Rename[resultTableName=s] cost=[tuples=999.0, tupSize=13.0, cpuCost=2999.0, blockIOs=4, largeSeeks=1]\n                Project[values:  [stores.store_id, stores.city_id, stores.property_costs]] cost=[tuples=999.0, tupSize=13.0, cpuCost=2999.0, blockIOs=4, largeSeeks=1]\n                    FileScan[table:  stores, pred:  stores.property_costs > 500000] cost=[tuples=999.0, tupSize=13.0, cpuCost=2000.0, blockIOs=4, largeSeeks=1]\n            Rename[resultTableName=eligible] cost=[tuples=5.0, tupSize=39.5, cpuCost=13721.0, blockIOs=2, largeSeeks=2]\n                Project[values:  [c.city_id]] cost=[tuples=5.0, tupSize=39.5, cpuCost=13721.0, blockIOs=2, largeSeeks=2]\n                    NestedLoop[pred:  c.state_id == o.state_id] cost=[tuples=5.0, tupSize=39.5, cpuCost=13716.0, blockIOs=2, largeSeeks=2]\n                        Rename[resultTableName=c] cost=[tuples=254.0, tupSize=23.8, cpuCost=254.0, blockIOs=1, largeSeeks=1]\n                            FileScan[table:  cities] cost=[tuples=254.0, tupSize=23.8, cpuCost=254.0, blockIOs=1, largeSeeks=1]\n                        Rename[resultTableName=o] cost=[tuples=1.0, tupSize=15.7, cpuCost=52.0, blockIOs=1, largeSeeks=1]\n                            Project[values:  [states.state_id]] cost=[tuples=1.0, tupSize=15.7, cpuCost=52.0, blockIOs=1, largeSeeks=1]\n                                FileScan[table:  states, pred:  states.state_name == 'Oregon'] cost=[tuples=1.0, tupSize=15.7, cpuCost=51.0, blockIOs=1, largeSeeks=1]\n\nEstimated 19.588217 tuples with average size 52.454067\nEstimated number of block IOs:  6\n"
+    },
+    {
+      "name": "range_direct",
+      "sql": "SELECT * FROM cities WHERE city_id>20 AND city_id<200",
+      "estimatedRows": 184.78282166,
+      "cpuCost": 254.0,
+      "blockIOs": 1,
+      "actualRows": 179,
+      "seconds": 0.00075815,
+      "resultSha256": "e585d950371132b49161f0318e699ee14c6f2a756627d010711afc2846882d4e",
+      "explain": "Explain Plan:\n    FileScan[table:  cities, pred:  cities.city_id > 20 AND cities.city_id < 200] cost=[tuples=184.8, tupSize=23.8, cpuCost=254.0, blockIOs=1, largeSeeks=1]\n\nEstimated 184.782822 tuples with average size 23.787401\nEstimated number of block IOs:  1\n"
+    },
+    {
+      "name": "range_low_first",
+      "sql": "SELECT * FROM (SELECT * FROM cities WHERE city_id>20) t WHERE city_id<200",
+      "estimatedRows": 180.7114563,
+      "cpuCost": 488.92489624,
+      "blockIOs": 1,
+      "actualRows": 179,
+      "seconds": 0.00063883,
+      "resultSha256": "e585d950371132b49161f0318e699ee14c6f2a756627d010711afc2846882d4e",
+      "explain": "Explain Plan:\n    SimpleFilter[pred:  t.city_id < 200] cost=[tuples=180.7, tupSize=23.8, cpuCost=488.9, blockIOs=1, largeSeeks=1]\n        Rename[resultTableName=t] cost=[tuples=234.9, tupSize=23.8, cpuCost=254.0, blockIOs=1, largeSeeks=1]\n            FileScan[table:  cities, pred:  cities.city_id > 20] cost=[tuples=234.9, tupSize=23.8, cpuCost=254.0, blockIOs=1, largeSeeks=1]\n\nEstimated 180.711456 tuples with average size 23.787401\nEstimated number of block IOs:  1\n"
+    },
+    {
+      "name": "range_high_first",
+      "sql": "SELECT * FROM (SELECT * FROM cities WHERE city_id<200) t WHERE city_id>20",
+      "estimatedRows": 180.7114563,
+      "cpuCost": 453.78656006,
+      "blockIOs": 1,
+      "actualRows": 179,
+      "seconds": 0.00033262,
+      "resultSha256": "e585d950371132b49161f0318e699ee14c6f2a756627d010711afc2846882d4e",
+      "explain": "Explain Plan:\n    SimpleFilter[pred:  t.city_id > 20] cost=[tuples=180.7, tupSize=23.8, cpuCost=453.8, blockIOs=1, largeSeeks=1]\n        Rename[resultTableName=t] cost=[tuples=199.8, tupSize=23.8, cpuCost=254.0, blockIOs=1, largeSeeks=1]\n            FileScan[table:  cities, pred:  cities.city_id < 200] cost=[tuples=199.8, tupSize=23.8, cpuCost=254.0, blockIOs=1, largeSeeks=1]\n\nEstimated 180.711456 tuples with average size 23.787401\nEstimated number of block IOs:  1\n"
+    }
+  ],
+  "verification": {
+    "commit": "c3bee837c62256d7d10ea23e58fee2036491ed11",
+    "run_url": "https://github.com/edidada/caltech-cs122-nanodb-base/actions/runs/41816676063",
+    "conclusion": "success",
+    "maven": {
+      "tests": 215,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "gradle": {
+      "tests": 215,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  }
+}
