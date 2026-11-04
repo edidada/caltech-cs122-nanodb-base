@@ -163,7 +163,7 @@ public class DatabaseConstraintEnforcer implements RowEventListener {
         Schema schema = tableInfo.getSchema();
 
         // Check NOT NULL constraints first - they are cheapest.
-        checkNotNullConstraints(tableInfo, oldTuple);
+        checkNotNullConstraints(tableInfo, newTuple);
 
         // All other constraints are key constraints; if we aren't supposed to
         // enforce them, skip the rest.
@@ -175,6 +175,19 @@ public class DatabaseConstraintEnforcer implements RowEventListener {
         // any of these constraints.
         List<KeyColumnRefs> candKeyList = schema.getCandidateKeys();
         for (KeyColumnRefs candKey : candKeyList) {
+            boolean unchanged = true;
+            for (int column : candKey.getCols()) {
+                Object previous = oldTuple.getColumnValue(column);
+                Object replacement = newTuple.getColumnValue(column);
+                if (previous == null || replacement == null) {
+                    if (previous != replacement) {unchanged = false;break;}
+                }
+                else if (!CompareOperator.areObjectsEqual(previous,replacement)) {
+                    unchanged = false;break;
+                }
+            }
+            // The old row already owns an unchanged key; it is not a conflict.
+            if (unchanged) continue;
             if (hasCandidateKeyValue(tableInfo, candKey, newTuple)) {
                 String msg = makeErrorMessage(
                     "Cannot update tuple due to unique constraint",
