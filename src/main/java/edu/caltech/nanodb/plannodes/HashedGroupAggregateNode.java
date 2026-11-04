@@ -170,39 +170,39 @@ public class HashedGroupAggregateNode extends GroupAggregateNode {
         // Pull tuples from the left child until we run out.
         while ((inputTuple = leftChild.getNextTuple()) != null) {
             try {
-            environment.clear();
-            environment.addTuple(inputSchema, inputTuple);
+                environment.clear();
+                environment.addTuple(inputSchema, inputTuple);
 
-            // Get the group values for the current row.
-            TupleLiteral groupValues = evaluateGroupByExprs();
+                // Get the group values for the current row.
+                TupleLiteral groupValues = evaluateGroupByExprs();
 
-            // logger.debug("Group values = " + groupValues);
+                // logger.debug("Group values = " + groupValues);
 
-            // Look up the collection of aggregate functions for this group,
-            // or create one if it doesn't already exist.
-            Map<String, FunctionCall> groupAggregates = computedAggregates.get(groupValues);
-            if (groupAggregates == null) {
-                groupAggregates = new LinkedHashMap<>();
+                // Look up the collection of aggregate functions for this group,
+                // or create one if it doesn't already exist.
+                Map<String, FunctionCall> groupAggregates = computedAggregates.get(groupValues);
+                if (groupAggregates == null) {
+                    groupAggregates = new LinkedHashMap<>();
 
-                // logger.debug(" * Creating new computed aggregates for this group");
+                    // logger.debug(" * Creating new computed aggregates for this group");
 
-                // Clone each aggregate function, since aggregates keep some
-                // internal scratch space for computation.
-                for (String name : aggregates.keySet()) {
-                    FunctionCall fnCall = aggregates.get(name);
-                    groupAggregates.put(name, (FunctionCall) fnCall.duplicate());
+                    // Clone each aggregate function, since aggregates keep some
+                    // internal scratch space for computation.
+                    for (String name : aggregates.keySet()) {
+                        FunctionCall fnCall = aggregates.get(name);
+                        groupAggregates.put(name, (FunctionCall) fnCall.duplicate());
+                    }
+
+                    clearAggregates(groupAggregates);
+                    computedAggregates.put(groupValues, groupAggregates);
                 }
 
-                clearAggregates(groupAggregates);
-                computedAggregates.put(groupValues, groupAggregates);
-            }
+                // Now that we know the group, and we have aggregate functions to
+                // do the computation, update each aggregate with the tuple's
+                // current value.
+                updateAggregates(groupAggregates);
 
-            // Now that we know the group, and we have aggregate functions to
-            // do the computation, update each aggregate with the tuple's
-            // current value.
-            updateAggregates(groupAggregates);
-
-            // Now that we are done with the current tuple, unpin it.
+                // Now that we are done with the current tuple, unpin it.
             }
             finally { inputTuple.unpin(); }
         }
