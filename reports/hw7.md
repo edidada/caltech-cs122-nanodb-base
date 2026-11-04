@@ -25,3 +25,5 @@ forceWAL第一阶段实现（未验证）：用记录偏移+recordSize计算排�
 异常清理补齐（静态检查，未执行）：performRedo、performUndo和显式rollback的reader生命周期统一使用try/finally；解码、页面加载、撤销或写补偿失败时也关闭reader，释放其当前缓存页引用。正常完成和异常路径不重复依赖末尾close。已实际下载官方Lab7说明44293字节用于要求核对，文件仅缓存在.git。
 
 官方要求复核：heap数据页、元数据及HW1空闲空间树的修改已有logDBPageWrite调用。applyRedo/applyUndo现拒绝零长或超出页面范围的日志分段，在写页前报告WALFileException；不把损坏日志产生的越界写当作普通存储错误。此项只保护分段范围，尚不能替代截断记录、坏尾部与全记录预验证测试。默认事务开启与flush-after-command关闭仍未全局切换，当前仅专用测试显式开启，官方配置要求未完成。
+
+新增独立JVM崩溃恢复测试（未执行）：子进程显式开启事务、关闭flushAfterCmd，提交两行后Runtime.halt(73)绕过shutdown/finally，验证无数据页flush的redo；另一模式先修改/插入未提交数据并writeAll(true)强制脏页落盘再halt，验证WAL规则和undo。父进程检查退出码及90秒超时、保存子进程输出，重启两次核对完整有序结果。第二次为正常恢复后再启动的幂等检查，不冒充“恢复中再次崩溃”；该更强故障注入仍未实现。仅准备代码，本地未执行。
