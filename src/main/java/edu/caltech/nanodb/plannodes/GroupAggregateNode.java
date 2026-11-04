@@ -123,9 +123,9 @@ public abstract class GroupAggregateNode extends PlanNode {
                 stats.add(colStat);
             }
             else {
-                throw new UnsupportedOperationException("NanoDB does not " +
-                    "yet support GROUP BY expressions that are not simple " +
-                    "column references; got " + expr);
+                // Expressions are evaluated by evaluateGroupByExprs; retain
+                // conservative unknown statistics until HW3 costing exists.
+                stats.add(new ColumnStats());
             }
         }
 

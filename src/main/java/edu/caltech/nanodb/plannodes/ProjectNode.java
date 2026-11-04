@@ -313,8 +313,14 @@ public class ProjectNode extends PlanNode {
             done = true;
         }
 
-        if (currentTuple != null)
-            return projectTuple(currentTuple);
+        if (currentTuple != null) {
+            if (projectIsTrivial) return currentTuple;
+            try { return projectTuple(currentTuple); }
+            finally {
+                currentTuple.unpin();
+                currentTuple = null;
+            }
+        }
 
         done = true;
         return null;

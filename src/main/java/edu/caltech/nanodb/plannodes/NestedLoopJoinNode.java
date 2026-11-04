@@ -34,12 +34,23 @@ public class NestedLoopJoinNode extends ThetaJoinNode {
 
     /** Set to true when we have exhausted all tuples from our subplans. */
     private boolean done;
+    private boolean matchedLeft;
+    private int emitted;
+    private int marked = -1;
 
 
     public NestedLoopJoinNode(PlanNode leftChild, PlanNode rightChild,
                               JoinType joinType, Expression predicate) {
 
         super(leftChild, rightChild, joinType, predicate);
+        if (joinType == JoinType.RIGHT_OUTER) {
+            swap();
+            this.joinType = JoinType.LEFT_OUTER;
+        }
+        else if (joinType != JoinType.LEFT_OUTER && joinType != JoinType.INNER &&
+                 joinType != JoinType.CROSS) {
+            throw new IllegalArgumentException("Unsupported nested-loop join: " + joinType);
+        }
     }
 
 
@@ -55,7 +66,8 @@ public class NestedLoopJoinNode extends ThetaJoinNode {
         if (obj instanceof NestedLoopJoinNode) {
             NestedLoopJoinNode other = (NestedLoopJoinNode) obj;
 
-            return predicate.equals(other.predicate) &&
+            return joinType == other.joinType && schemaSwapped == other.schemaSwapped &&
+                java.util.Objects.equals(predicate, other.predicate) &&
                 leftChild.equals(other.leftChild) &&
                 rightChild.equals(other.rightChild);
         }
@@ -130,7 +142,7 @@ public class NestedLoopJoinNode extends ThetaJoinNode {
 
     /** True if the node supports position marking. **/
     public boolean supportsMarking() {
-        return leftChild.supportsMarking() && rightChild.supportsMarking();
+        return true; // Reset is implemented by deterministic replay, not child marks.
     }
 
 
@@ -162,9 +174,13 @@ public class NestedLoopJoinNode extends ThetaJoinNode {
 
 
     public void initialize() {
+        releaseLeft();
         super.initialize();
 
         done = false;
+        emitted = 0;
+        marked = -1;
+        matchedLeft = false;
         leftTuple = null;
         rightTuple = null;
     }
@@ -176,28 +192,49 @@ public class NestedLoopJoinNode extends ThetaJoinNode {
      * @return the next joined tuple that satisfies the join condition.
      */
     public Tuple getNextTuple() {
-        if (done)
-            return null;
-
-        while (getTuplesToJoin()) {
-            if (canJoinTuples())
-                return joinTuples(leftTuple, rightTuple);
+        if (done) return null;
+        while (true) {
+            if (leftTuple == null) {
+                leftTuple = leftChild.getNextTuple();
+                if (leftTuple == null) {
+                    done = true;
+                    return null;
+                }
+                matchedLeft = false;
+                rightChild.initialize();
+            }
+            rightTuple = rightChild.getNextTuple();
+            if (rightTuple != null) {
+                try {
+                    if (canJoinTuples()) {
+                        matchedLeft = true;
+                        emitted++;
+                        return joinTuples(leftTuple, rightTuple);
+                    }
+                }
+                finally {
+                    rightTuple.unpin();
+                    rightTuple = null;
+                }
+            }
+            else {
+                if (joinType == JoinType.LEFT_OUTER && !matchedLeft) {
+                    Tuple result = joinTuples(leftTuple,
+                        edu.caltech.nanodb.expressions.TupleLiteral.ofSize(rightSchema.numColumns()));
+                    releaseLeft();
+                    emitted++;
+                    return result;
+                }
+                releaseLeft();
+            }
         }
-
-        return null;
     }
 
-
-    /**
-     * This helper function implements the logic that sets {@link #leftTuple}
-     * and {@link #rightTuple} based on the nested-loops logic.
-     *
-     * @return {@code true} if another pair of tuples was found to join, or
-     *         {@code false} if no more pairs of tuples are available to join.
-     */
-    private boolean getTuplesToJoin() {
-        // TODO:  Implement
-        return false;
+    private void releaseLeft() {
+        if (leftTuple != null) {
+            leftTuple.unpin();
+            leftTuple = null;
+        }
     }
 
 
@@ -215,22 +252,27 @@ public class NestedLoopJoinNode extends ThetaJoinNode {
 
 
     public void markCurrentPosition() {
-        leftChild.markCurrentPosition();
-        rightChild.markCurrentPosition();
+        if (emitted == 0) throw new IllegalStateException("No current join tuple");
+        marked = emitted - 1;
     }
 
-
-    public void resetToLastMark() throws IllegalStateException {
-        leftChild.resetToLastMark();
-        rightChild.resetToLastMark();
-
-        // TODO:  Prepare to reevaluate the join operation for the tuples.
-        //        (Just haven't gotten around to implementing this.)
+    /** Replaying is slower than a materialized result but also works when an
+     * input is a hash aggregate or other non-markable plan. */
+    public void resetToLastMark() {
+        if (marked < 0) throw new IllegalStateException("No join position marked");
+        int position = marked;
+        initialize();
+        for (int i = 0; i < position; i++) {
+            Tuple skipped = getNextTuple();
+            if (skipped == null) throw new IllegalStateException("Join changed during replay");
+            skipped.unpin();
+        }
+        marked = position;
     }
-
 
     public void cleanUp() {
-        leftChild.cleanUp();
-        rightChild.cleanUp();
+        releaseLeft();
+        try { leftChild.cleanUp(); }
+        finally { rightChild.cleanUp(); }
     }
 }

@@ -158,8 +158,18 @@ public class HashedGroupAggregateNode extends GroupAggregateNode {
 
         computedAggregates = new LinkedHashMap<>();
 
+        // A global aggregate has one group even for an empty input.
+        if (groupByExprs.isEmpty()) {
+            Map<String, FunctionCall> initial = new LinkedHashMap<>();
+            for (String name : aggregates.keySet())
+                initial.put(name, (FunctionCall) aggregates.get(name).duplicate());
+            clearAggregates(initial);
+            computedAggregates.put(null, initial);
+        }
+
         // Pull tuples from the left child until we run out.
         while ((inputTuple = leftChild.getNextTuple()) != null) {
+            try {
             environment.clear();
             environment.addTuple(inputSchema, inputTuple);
 
@@ -183,6 +193,7 @@ public class HashedGroupAggregateNode extends GroupAggregateNode {
                     groupAggregates.put(name, (FunctionCall) fnCall.duplicate());
                 }
 
+                clearAggregates(groupAggregates);
                 computedAggregates.put(groupValues, groupAggregates);
             }
 
@@ -192,7 +203,8 @@ public class HashedGroupAggregateNode extends GroupAggregateNode {
             updateAggregates(groupAggregates);
 
             // Now that we are done with the current tuple, unpin it.
-            inputTuple.unpin();
+            }
+            finally { inputTuple.unpin(); }
         }
     }
 

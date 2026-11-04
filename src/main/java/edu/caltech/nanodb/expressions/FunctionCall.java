@@ -211,7 +211,9 @@ public class FunctionCall extends Expression {
     protected Object clone() throws CloneNotSupportedException {
         FunctionCall expr = (FunctionCall) super.clone();
 
-        expr.args = (ArrayList<Expression>) args.clone();
+        expr.args = new ArrayList<>();
+        for (Expression argument : args)
+            expr.args.add(argument.duplicate());
         expr.function = (ScalarFunction) function.clone();
 
         return expr;
