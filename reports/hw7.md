@@ -13,3 +13,5 @@ HW6运行41863122155仍queued，未重启；整个课程目标未完成，不增
 forceWAL第一阶段实现（未验证）：用记录偏移+recordSize计算排他末尾，拒绝超过已生成日志，按文件及页范围writeDBFile(sync=true)，最后才持久化txnstate.nextLSN；持久化异常恢复内存中的旧边界。恰好切换到下一文件首记录时无需打开尚未创建的新文件。当前LSN比较器按文件号排序，65535→0回绕尚未支持；跨线程原子性/缓冲锁顺序也未证明，不能据此宣称并发或崩溃持久化已验收。事务默认仍关闭；redo/undo和日志切换仍有占位。
 
 显式ROLLBACK事务链实现（未执行）：检查记录事务ID与类型，START终止，UPDATE读取前一LSN及页面修改前字节、恢复页面并生成redo-only补偿记录；补偿链接指向undo-next，更新会话lastLSN、pageLSN和页面旧镜像，再沿原previous继续。redo-only直接沿链跳过，拒绝不后退的链或非预期记录。最后写ABORT。编号回绕尚未支持；启动恢复performRedo/performUndo仍未实现，不能把显式回滚实现当作崩溃恢复完成。
+
+启动redo扫描实现（未执行）：识别START/COMMIT/ABORT/UPDATE/redo-only，累计事务最大ID和未完成事务；重放UPDATE/补偿数据到页面、更新pageLSN和旧镜像，校验尾部起始偏移与类型字节，推进排他下一LSN，完成事务从集合移除。重放采取重复写入绝对字节方式，不跳过可能缺少持久pageLSN的页。恢复undo仍占位，异常关闭reader及日志截断防护仍需补强；该阶段不构成恢复验收。

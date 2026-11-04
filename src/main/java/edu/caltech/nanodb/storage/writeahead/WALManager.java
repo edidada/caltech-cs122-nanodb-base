@@ -315,29 +315,41 @@ public class WALManager {
                 "Redo:  examining WAL record at %s.  Type = %s, TxnID = %d",
                 currLSN, type, transactionID));
 
-            // TODO:  IMPLEMENT THE REST
-            //
-            //        Use logging statements liberally to help verify and
-            //        debug your work.
-            //
-            //        If you encounter invalid WAL contents, throw a
-            //        WALFileException to indicate the problem immediately.
-            //
-            //        You can use Java enums in a switch statement, like this:
-            //
-            //            switch (type) {
-            //            case START_TXN:
-            //                ...
-            //
-            //            case COMMIT_TXN:
-            //                ...
-            //
-            //            default:
-            //                throw new WALFileException(
-            //                    "Encountered unrecognized WAL record type " +
-            //                    type + " at LSN " + currLSN +
-            //                    " during redo processing!");
-            //            }
+            recoveryInfo.updateInfo(transactionID,currLSN);
+            switch (type) {
+            case START_TXN:
+                break;
+            case COMMIT_TXN:
+            case ABORT_TXN:
+                walReader.readUnsignedShort();walReader.readInt();
+                recoveryInfo.recordTxnCompleted(transactionID);
+                break;
+            case UPDATE_PAGE:
+            case UPDATE_PAGE_REDO_ONLY:
+                walReader.readUnsignedShort();walReader.readInt();
+                String filename = walReader.readVarString255();
+                int pageNo = walReader.readUnsignedShort();
+                int segments = walReader.readUnsignedShort();
+                DBFile file = storageManager.openDBFile(filename);
+                if (file == null) throw new WALFileException("Missing redo data file " + filename);
+                DBPage page = storageManager.loadDBPage(file,pageNo,true);
+                try {
+                    applyRedo(type,walReader,page,segments);
+                    int storedOffset = walReader.readInt();
+                    if (storedOffset != currLSN.getFileOffset())
+                        throw new WALFileException("Invalid redo record start trailer at " + currLSN);
+                    // Include the trailing type byte, consumed below.
+                    LogSequenceNumber pageLSN = new LogSequenceNumber(currLSN,
+                        walReader.getPosition() + 1 - currLSN.getFileOffset());
+                    page.setPageLSN(pageLSN);page.syncOldPageData();
+                }
+                finally {page.unpin();}
+                break;
+            default:
+                throw new WALFileException("Unexpected redo record " + type + " at " + currLSN);
+            }
+            if (walReader.readByte() != typeID)
+                throw new WALFileException("Mismatched WAL record type trailer at " + currLSN);
 
             currLSN = computeNextLSN(currLSN.getLogFileNo(), walReader.getPosition());
         }
