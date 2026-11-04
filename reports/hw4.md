@@ -1,31 +1,35 @@
-# CS122 HW4：连接顺序优化（实现待远端验证）
+# CS122 HW4：连接顺序优化实验报告
 
-依据 [Caltech Winter2019 Assignment 4](https://courses.cms.caltech.edu/cs122/assignments/lab4.html)，从已验收 HW3 `10e9f6903b65f41a338dc026dea70abda56335f9` 建立 `edidada/hw4`。官方题目要求公共规划器基类、左深动态规划、最早可用谓词下推、外连接语义保护、兼容原有分组/聚合/排序，以及完整 stores-28K EXPLAIN 实验。本文件记录当前实现，**尚不登记为完成实验**。
+依据 [Caltech Winter2019 Assignment4](https://courses.cms.caltech.edu/cs122/assignments/lab4.html)，分支 `edidada/hw4` 从已验收 HW3 建立。代码提交 `8de9883547b6101735a322d723f82076d5bbb8b0` 已通过 [Actions 41851610298](https://github.com/edidada/caltech-cs122-nanodb-base/actions/runs/41851610298)：JDK17 Maven、Gradle 各221项测试，零失败、零跳过，并完成完整 stores-28K 的13条查询。学校私有评分和正式提交未执行。
 
-## 已实现代码
+## 实现与范围
 
-`AbstractPlannerImpl` 提取原 SimplePlanner 的公共 SQL 翻译，不复制聚合、HAVING、投影、排序、LIMIT/OFFSET；SimplePlanner 保留语法顺序作为差分参考。CostBasedJoinPlanner 只替换 FROM/WHERE 规划，默认配置切换至它；旧 HW3 的固定成本公式测试显式指定 SimplePlanner，避免把优化后的树与原树公式混比。
+AbstractPlannerImpl 共享 SQL 翻译、聚合提取、HAVING、投影、排序及 LIMIT；SimplePlanner 保留语法顺序，CostBasedJoinPlanner 替换 FROM/WHERE。优化器按叶序号和 BitSet 枚举左深计划，为每个子集保留 CPU 估算最小的候选；同成本采用确定性次序，自连接叶不会因结构相同合并。递归展开 AND，保留 OR/NOT；单叶及新连接可用条件尽早应用，剩余条件保留在最终过滤。
 
-优化器收集普通 INNER/CROSS 区域的叶和 ON/WHERE 合取项，按稳定顺序枚举。叶以独立序号和 BitSet 表示，避免结构相同的自连接节点被集合合并。每层从 n 叶最优候选追加一个右侧叶，只保留相同子集下 CPU 估算最小的左深计划；同成本使用确定性顺序。单叶可执行条件尽早下推，新连接只附加此前未消费且当前可执行的条件。所有剩余条件保留为最终过滤，不能丢失。
+重排后按原叶身份和列偏移恢复公共列序；派生表与外连接作为父区域的不透明叶。LEFT 的上层 WHERE 仅进入保留左侧，RIGHT 对称；ON 中仅依赖非保留侧的条件可以过滤该输入。NATURAL/USING 保留共享语义翻译，不声称全部内部重排。最优性仅针对左深搜索空间、最早过滤和 HW3 近似成本模型；未实现等值传递、索引路径、interesting orders 或跨派生表下推。prepare 会重复准备子树，未声称局部常数开销。
 
-物理重排后的列位置投影恢复原 FROM schema，保护 SELECT * 的值顺序、列名和限定名。派生表单独递归规划，作为当前区域黑盒。外连接在父区域视为整体：LEFT 的上层 WHERE 只能进入保留的左侧，RIGHT 对称；ON 中仅依赖非保留侧的条件可以过滤该输入。跨侧或不能安全移动的条件留在原语义位置；OR 不拆成独立合取项。NATURAL/USING 的合并列连接保守保留公共翻译路径，未声称对其内部全部做重排优化。
+## 实际验证
 
-该最优性只针对左深搜索空间、最早过滤启发式和 HW3 近似 CPU 模型，不是全局 SQL 最优。尚未实现等值传递推理、interesting orders、索引路径或跨派生表下推。现有 prepare 会递归准备子树，候选准备存在重复工作，报告不将它宣称为局部常数开销。
+215项既有测试与6项 HW4 测试均在两种构建工具上执行。新增测试包含：三表来源顺序、ON/WHERE 变体及 SELECT * 列序；左右外连接和 NULL 过滤；派生聚合/HAVING、OR、非连通输入、自连接；合法的独立 USING 子连接；空输入、恒真/恒假 ON 与 WHERE 的11条查询；独立标量枚举四表24种顺序，比较最小核心连接 CPU。每种 SQL 差分比较完整行多重集合和 schema。
 
-## 验证准备和当前状态
+首轮真实 CI 暴露普通表叶误用 isOuterJoin 接口；现已先检查 isJoinExpr。此前设想的同名未限定合并列在 AST schema 阶段会被拒绝，不作为已复现故障；测试已改为分别合并 k、q 的合法查询。未修改官方测试以掩盖错误。
 
-独立 `.github/workflows/hw4.yml` 为 JDK17 Maven/Gradle，组为 framework/parser/HW1～HW4，并运行完整 stores-28K。新增差分用例比较 SimplePlanner 与优化器的全行多重集合、schema、表顺序、重复/NULL键、左右外连接 WHERE/ON 区别、派生表、聚合、OR、不相连输入和自连接；另有四表24种顺序的独立标量成本枚举，用于检查动态规划结果；公共列序恢复投影的成本与核心连接成本分开比较。括号嵌套AND递归展开，OR/NOT保持整体。这些用例**尚未执行**。
+完整数据包含 states 51、cities 254、stores 2000、employees 24932 行，保留全部源数据而非玩具替代。员工 manager 列的空值/NDV、字符串边界及旧 HW3 完整结果哈希均检查通过。主要结果：
 
-`scripts/hw4_experiments.py` 复用完整数据驱动，增加 Oregon 表/条件顺序及 ON/WHERE 变体，准备检查核心连接计划一致（排除可选输出列序投影及最终摘要，并归一化缩进）、完整结果哈希一致，并与已保存 HW3 查询哈希及成本比较。不能用已通过的 HW3 结果代替 HW4 的执行结果。[设计题](../doc/lab4design.txt) 的实现说明已填写，C1～C4 实际 EXPLAIN 待执行后补入。
+| 查询 | 实际行数 | 估算 CPU |
+| --- | ---: | ---: |
+| cities_5m | 1 | 254.0 |
+| join_original | 74 | 906135.5 |
+| join_rewritten | 74 | 906361.125 |
+| oregon_original | 7 | 15534.36816406 |
+| oregon_rewritten | 7 | 20520.73632813 |
+| oregon_order_b | 7 | 15514.78027344 |
+| oregon_order_c | 7 | 15534.36816406 |
 
-发布时 GitHub 拒绝当前 OAuth App 新增工作流，明确报错缺少 `workflow` scope；现有 edidada SSH 身份也认证失败。本机仅编辑、Python AST 与 `git diff --check` 静态检查，未本地编译/测试，未捏造远端 CI。需要恢复已有 GitHub 登录的 workflow 权限后，继续发布、读取失败日志并修复，直至最终 SHA 的双构建及完整数据实验完成。
+Oregon 原查询相同成本模型下由 HW3 的78,742,016降至15,534.368；三种表/条件顺序得到相同核心连接计划，顶层列序恢复投影可能使总 CPU 略有不同。Oregon 结果均7行、完整哈希相同；原/派生 join 均74行且哈希相同。范围查询三种写法均179行。成本是模型估算，不能当作实测加速比；分布偏斜与谓词独立性误差仍然存在。
 
-课程总表仍保留 HW4 未完成，不增加实验验收计数。学校私有评分及正式课程提交不在已完成范围。
+设计题 C1～C4 已填入远端实际 EXPLAIN。全部 SQL、估算/实测行数、运行秒数、计划树、哈希和代码/运行来源见 [hw4-results.json](hw4-results.json)。没有本地编译或运行实验。
 
-静态复核修正：恢复公共列序时改用叶对象身份及列偏移，不再以列名查找，避免两个独立 USING 子连接同时输出未限定 k 列时发生歧义。新增两种输入顺序的独立 USING 子连接差分用例，使用不同键值及行数区分位置；尚未执行。公共基类说明同步改为共享 SQL 翻译。
+## 发布和验收说明
 
-最新账户限制：langnote 索引提交 603c5b5b 的 Actions 41848626316 在分配 runner 前被拒绝，注释为账户付款失败或支出额度限制。这与新增 workflow 所需 OAuth scope 是两个独立障碍；未调整账户付费设置，也不以旧 CI 替代本分支验证。
-
-后续静态检查更正：Schema.addColumnInfo 禁止相同表限定名和列名重复，因此此前设想的两个未限定 k 列同时输出会在 AST schema 阶段被拒绝，不能用它证明原 restore 的实际缺陷。位置映射保留为直接记录重排来源的实现；差分用例改用分别合并 k、q 的两个合法 USING 子连接，验证不透明叶的输出顺序，不扩大 SQL 支持范围。此前“同名列歧义已修复”的动机描述不构成已复现故障证据。
-
-新增待执行的空输入/常量谓词边界验证：左右外连接分别覆盖保留侧空与非保留侧空、空输入内连接、恒假 ON（仍应保留外侧行）、恒假 WHERE（应清空输出）、恒真 ON 加 NULL 过滤。共11条查询，与语法顺序规划器比较完整多重集合与 schema；没有本地执行，也尚未取得远端结果。
+此前 CLI OAuth 缺少 workflow scope；GitHub 插件通道恢复后已发布相同本地提交，并核对远端 SHA。公开 NanoDB 仓库的 Actions 实际可运行；langnote 的付款/额度错误不能推断所有仓库都无法运行。后续源码或文档提交仍需核对最终 HEAD 的完整 CI，不能将本节代码基线证明直接替代新提交验收。HW5 在独立分支继续实现，本报告不将其计为完成。

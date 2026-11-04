@@ -73,20 +73,51 @@ to write explanatory notes after your output.
 
 C1.  EXPLAIN SELECT * FROM cities WHERE population > 5000000;
 
-Execution pending: full stores-28K driver is prepared, but publication of the new HW4 workflow is blocked by missing workflow scope. No EXPLAIN output or execution result is claimed yet.
+Explain Plan:
+    FileScan[table:  cities, pred:  cities.population > 5000000] cost=[tuples=99.3, tupSize=23.8, cpuCost=254.0, blockIOs=1, largeSeeks=1]
+
+Estimated 99.262199 tuples with average size 23.787401
+Estimated number of block IOs:  1
+
+
+Measured on Actions: 1 rows; full result SHA-256 8db10723d71d1b3031cb35e7ef7f793e1a37615953c2008f72e4f33d0c8fdf2a.
 
 C2.  EXPLAIN SELECT store_id FROM stores, cities
      WHERE stores.city_id = cities.city_id AND
            cities.population > 1000000;
 
-Execution pending: full stores-28K driver is prepared, but publication of the new HW4 workflow is blocked by missing workflow scope. No EXPLAIN output or execution result is claimed yet.
+Explain Plan:
+    Project[values:  [stores.store_id]] cost=[tuples=1776.2, tupSize=36.8, cpuCost=906135.5, blockIOs=5, largeSeeks=2]
+        Project[values:  [Bound[0:4], Bound[0:5], Bound[0:6], Bound[0:0], Bound[0:1], Bound[0:2], Bound[0:3]]] cost=[tuples=1776.2, tupSize=36.8, cpuCost=904359.3, blockIOs=5, largeSeeks=2]
+            NestedLoop[pred:  stores.city_id == cities.city_id] cost=[tuples=1776.2, tupSize=36.8, cpuCost=902583.0, blockIOs=5, largeSeeks=2]
+                FileScan[table:  cities, pred:  cities.population > 1000000] cost=[tuples=225.6, tupSize=23.8, cpuCost=254.0, blockIOs=1, largeSeeks=1]
+                FileScan[table:  stores] cost=[tuples=2000.0, tupSize=13.0, cpuCost=2000.0, blockIOs=4, largeSeeks=1]
+
+Estimated 1776.238159 tuples with average size 36.787399
+Estimated number of block IOs:  5
+
+
+Measured on Actions: 74 rows; full result SHA-256 118a520ef247007918447fa3dda444fdff4baa6049d140d1529fdaa32c4db40f.
 
 C3.  EXPLAIN SELECT store_id FROM stores JOIN
                     (SELECT city_id FROM cities
                      WHERE population > 1000000) AS big_cities
                     ON stores.city_id = big_cities.city_id;
 
-Execution pending: full stores-28K driver is prepared, but publication of the new HW4 workflow is blocked by missing workflow scope. No EXPLAIN output or execution result is claimed yet.
+Explain Plan:
+    Project[values:  [stores.store_id]] cost=[tuples=1776.2, tupSize=36.8, cpuCost=906361.1, blockIOs=5, largeSeeks=2]
+        Project[values:  [Bound[0:1], Bound[0:2], Bound[0:3], Bound[0:0]]] cost=[tuples=1776.2, tupSize=36.8, cpuCost=904584.9, blockIOs=5, largeSeeks=2]
+            NestedLoop[pred:  stores.city_id == big_cities.city_id] cost=[tuples=1776.2, tupSize=36.8, cpuCost=902808.6, blockIOs=5, largeSeeks=2]
+                Rename[resultTableName=big_cities] cost=[tuples=225.6, tupSize=23.8, cpuCost=479.6, blockIOs=1, largeSeeks=1]
+                    Project[values:  [cities.city_id]] cost=[tuples=225.6, tupSize=23.8, cpuCost=479.6, blockIOs=1, largeSeeks=1]
+                        FileScan[table:  cities, pred:  cities.population > 1000000] cost=[tuples=225.6, tupSize=23.8, cpuCost=254.0, blockIOs=1, largeSeeks=1]
+                FileScan[table:  stores] cost=[tuples=2000.0, tupSize=13.0, cpuCost=2000.0, blockIOs=4, largeSeeks=1]
+
+Estimated 1776.238159 tuples with average size 36.787399
+Estimated number of block IOs:  5
+
+
+Measured on Actions: 74 rows; full result SHA-256 118a520ef247007918447fa3dda444fdff4baa6049d140d1529fdaa32c4db40f.
 
 C4.  EXPLAIN SELECT store_id, property_costs
      FROM stores, cities, states
@@ -94,7 +125,20 @@ C4.  EXPLAIN SELECT store_id, property_costs
            cities.state_id = states.state_id AND
            state_name = 'Oregon' AND property_costs > 500000;
 
-Execution pending: full stores-28K driver is prepared, but publication of the new HW4 workflow is blocked by missing workflow scope. No EXPLAIN output or execution result is claimed yet.
+Explain Plan:
+    Project[values:  [stores.store_id, stores.property_costs]] cost=[tuples=19.6, tupSize=52.5, cpuCost=15534.4, blockIOs=6, largeSeeks=3]
+        Project[values:  [Bound[0:6], Bound[0:7], Bound[0:8], Bound[0:2], Bound[0:3], Bound[0:4], Bound[0:5], Bound[0:0], Bound[0:1]]] cost=[tuples=19.6, tupSize=52.5, cpuCost=15514.8, blockIOs=6, largeSeeks=3]
+            NestedLoop[pred:  stores.city_id == cities.city_id] cost=[tuples=19.6, tupSize=52.5, cpuCost=15495.2, blockIOs=6, largeSeeks=3]
+                NestedLoop[pred:  cities.state_id == states.state_id] cost=[tuples=5.0, tupSize=39.5, cpuCost=559.0, blockIOs=2, largeSeeks=2]
+                    FileScan[table:  states, pred:  states.state_name == 'Oregon'] cost=[tuples=1.0, tupSize=15.7, cpuCost=51.0, blockIOs=1, largeSeeks=1]
+                    FileScan[table:  cities] cost=[tuples=254.0, tupSize=23.8, cpuCost=254.0, blockIOs=1, largeSeeks=1]
+                FileScan[table:  stores, pred:  stores.property_costs > 500000] cost=[tuples=999.0, tupSize=13.0, cpuCost=2000.0, blockIOs=4, largeSeeks=1]
+
+Estimated 19.588217 tuples with average size 52.454067
+Estimated number of block IOs:  6
+
+
+Measured on Actions: 7 rows; full result SHA-256 6417fa2aec8b18399a6b018401057751b2535ba8cdceb81ee78b5c74c2d22cd8.
 
 D:  Extra Credit [OPTIONAL]
 ---------------------------
@@ -110,14 +154,14 @@ D<i>:  <one-line description>
 
      <brief summary of test-cases that demonstrate/exercise your extra work>
 
-Prepared validation (not executed yet): TestHw4Optimizer includes a separate
+Executed validation (Actions 41851610298, 221 tests per Maven and Gradle): TestHw4Optimizer includes a separate
 scalar enumeration of all 24 four-table join orders. It computes the HW3 CPU
 recurrence without calling optimizer helpers, compares the core join cost,
 and differentially executes against SimplePlanner. Separate cases cover
 inner source-order variants, schema restoration, outer ON/WHERE safety,
 derived/grouping queries, OR, disconnected inputs and self joins. The full
 stores-28K driver compares complete result hashes and canonical join trees.
-These are pending checks, not passing evidence.
+All checks passed; detailed query outputs and provenance are in reports/hw4-results.json.
 
 E:  Feedback [OPTIONAL]
 -----------------------
