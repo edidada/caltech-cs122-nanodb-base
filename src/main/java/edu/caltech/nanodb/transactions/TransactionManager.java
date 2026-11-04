@@ -370,14 +370,36 @@ public class TransactionManager implements BufferManagerObserver {
      *        file during normal operation.
      */
     public void forceWAL(LogSequenceNumber lsn) {
-        // TODO:  IMPLEMENT
-        //
-        // Note that the "next LSN" value must be determined from both the
-        // current LSN *and* its record size; otherwise we lose the last log
-        // record in the WAL file.  You can use this static method:
-        //
-        // int lastPosition = lsn.getFileOffset() + lsn.getRecordSize();
-        // WALManager.computeNextLSN(lsn.getLogFileNo(), lastPosition);
+        if (lsn == null) throw new IllegalArgumentException("LSN required");
+        LogSequenceNumber end = WALManager.computeNextLSN(lsn.getLogFileNo(),
+            Math.addExact(lsn.getFileOffset(),lsn.getRecordSize()));
+        if (txnStateNextLSN == null)
+            throw new IllegalStateException("Transaction state not initialized");
+        if (end.compareTo(txnStateNextLSN) <= 0) return;
+        if (end.compareTo(walManager.getNextLSN()) > 0)
+            throw new IllegalArgumentException("Cannot force beyond generated WAL: " + end);
+        BufferManager buffer = storageManager.getBufferManager();
+        for (int fileNo = txnStateNextLSN.getLogFileNo(); fileNo <= end.getLogFileNo(); fileNo++) {
+            // End at the next file's first-record position needs no new file.
+            if (fileNo == end.getLogFileNo() && end.getFileOffset() == WALManager.OFFSET_FIRST_RECORD)
+                break;
+            DBFile file = storageManager.openDBFile(WALManager.getWALFileName(fileNo));
+            if (file == null || file.getType() != DBFileType.WRITE_AHEAD_LOG_FILE)
+                throw new IllegalStateException("Missing or invalid WAL file " + fileNo);
+            int firstPage = fileNo == txnStateNextLSN.getLogFileNo() ?
+                txnStateNextLSN.getFileOffset() / file.getPageSize() : 0;
+            int lastPage = fileNo == end.getLogFileNo() ?
+                (end.getFileOffset() - 1) / file.getPageSize() : Integer.MAX_VALUE;
+            buffer.writeDBFile(file,firstPage,lastPage,true);
+        }
+        // Publish the durable recovery boundary only AFTER all WAL fsyncs.
+        LogSequenceNumber previous = txnStateNextLSN;
+        txnStateNextLSN = end;
+        try {storeTxnStateToFile();}
+        catch (RuntimeException failure) {
+            txnStateNextLSN = previous;
+            throw failure;
+        }
     }
 
 
