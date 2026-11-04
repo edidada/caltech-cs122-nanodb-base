@@ -1192,19 +1192,34 @@ public class WALManager {
             logger.debug("Undoing WAL record at %s.  Type = %s, TxnID = %d",
                 lsn, type, transactionID);
 
-            // TODO:  IMPLEMENT THE REST
-            //
-            //        Use logging statements liberally to help verify and
-            //        debug your work.
-            //
-            //        If you encounter invalid WAL contents, throw a
-            //        WALFileException to indicate the problem immediately.
-            //
-            // TODO:  SET lsn TO PREVIOUS LSN TO WALK BACKWARD THROUGH WAL.
-
-            // TODO:  This break is just here so the code will compile; when
-            //        you provide your own implementation, get rid of it!
-            break;
+            if (type == null)
+                throw new DataFormatException("Unknown WAL record at " + lsn);
+            if (type == WALRecordType.START_TXN) break;
+            if (type != WALRecordType.UPDATE_PAGE && type != WALRecordType.UPDATE_PAGE_REDO_ONLY)
+                throw new DataFormatException("Unexpected rollback record " + type + " at " + lsn);
+            LogSequenceNumber previous = new LogSequenceNumber(walReader.readUnsignedShort(),walReader.readInt());
+            if (previous.compareTo(lsn) >= 0)
+                throw new DataFormatException("Transaction WAL chain does not move backwards at " + lsn);
+            if (type == WALRecordType.UPDATE_PAGE) {
+                String filename = walReader.readVarString255();
+                int pageNo = walReader.readUnsignedShort();
+                int segments = walReader.readUnsignedShort();
+                DBFile file = storageManager.openDBFile(filename);
+                if (file == null) throw new WALFileException("Missing rollback data file " + filename);
+                DBPage page = storageManager.loadDBPage(file,pageNo,true);
+                try {
+                    byte[] changes = applyUndoAndGenRedoOnlyData(walReader,page,segments);
+                    // Compensation links to undo-next, so a repeated rollback
+                    // does not undo an already compensated update again.
+                    LogSequenceNumber compensation = writeRedoOnlyUpdatePageRecord(
+                        transactionID,previous,page,segments,changes);
+                    txnState.setLastLSN(compensation);
+                    page.setPageLSN(compensation);
+                    page.syncOldPageData();
+                }
+                finally {page.unpin();}
+            }
+            lsn = previous;
         }
 
         // All done rolling back the transaction!  Record that it was aborted
