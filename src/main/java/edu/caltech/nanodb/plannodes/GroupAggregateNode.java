@@ -116,8 +116,8 @@ public abstract class GroupAggregateNode extends PlanNode {
                 ColumnValue colValue = (ColumnValue) expr;
                 int colIndex = inputSchema.getColumnIndex(colValue.getColumnName());
                 // colInfo = inputSchema.getColumnInfo(colIndex);
-                ColumnStats colStat = inputStats.get(colIndex);
-                numTuples *= colStat.getNumUniqueValues();
+                ColumnStats colStat = new ColumnStats(inputStats.get(colIndex));
+                numTuples = (int) Math.min(Integer.MAX_VALUE, (long) numTuples * Math.max(1, colStat.getNumUniqueValues()));
                 colStat.setNumNullValues(
                     (int) Math.signum(colStat.getNumNullValues()));
                 stats.add(colStat);
@@ -172,7 +172,9 @@ public abstract class GroupAggregateNode extends PlanNode {
             schema.addColumnInfo(colInfo);
         }
 
-        estimatedNumTuples = numTuples;
+        float inputRows = leftChild.getCost() == null ? numTuples : leftChild.getCost().numTuples;
+        estimatedNumTuples = groupByExprs.isEmpty() ? 1 :
+            (int) Math.min(inputRows, Math.max(0, numTuples));
 
         logger.info("Grouping/aggregate node schema:  " + schema);
         logger.info("Grouping/aggregate node stats:  " + stats);

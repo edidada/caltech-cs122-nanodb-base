@@ -111,11 +111,12 @@ public class SimpleFilterNode extends SelectNode {
         schema = leftChild.getSchema();
         ArrayList<ColumnStats> childStats = leftChild.getStats();
 
-        // TODO:  Compute the cost of the plan node!
-        cost = null;
-
-        // TODO:  Update the statistics based on the predicate.
-        stats = childStats;
+        PlanCost child = leftChild.getCost();
+        float selectivity = predicate == null ? 1 :
+            SelectivityEstimator.estimateSelectivity(predicate, schema, childStats);
+        cost = new PlanCost(child.numTuples * selectivity, child.tupleSize,
+            child.cpuCost + child.numTuples, child.numBlockIOs, child.numLargeSeeks);
+        stats = edu.caltech.nanodb.queryeval.StatisticsUpdater.updateStats(predicate, schema, childStats);
     }
 
 

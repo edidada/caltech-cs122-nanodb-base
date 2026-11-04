@@ -175,8 +175,25 @@ public class NestedLoopJoinNode extends ThetaJoinNode {
         // Use the parent class' helper-function to prepare the schema.
         prepareSchemaStats();
 
-        // TODO:  Implement the rest
-        cost = null;
+        PlanCost left = leftChild.getCost(), right = rightChild.getCost();
+        // The predicate environment uses physical input order, even for a
+        // RIGHT OUTER implemented as a swapped LEFT OUTER.
+        edu.caltech.nanodb.relations.Schema physical = new edu.caltech.nanodb.relations.Schema(leftSchema, rightSchema);
+        ArrayList<ColumnStats> inputs = new ArrayList<>();
+        inputs.addAll(leftStats); inputs.addAll(rightStats);
+        float selectivity = predicate == null ? 1 :
+            SelectivityEstimator.estimateSelectivity(predicate, physical, inputs);
+        float pairs = left.numTuples * right.numTuples;
+        float rows = pairs * selectivity;
+        if (joinType == JoinType.LEFT_OUTER) rows = Math.max(left.numTuples, rows);
+        cost = new PlanCost(rows, left.tupleSize + right.tupleSize,
+            left.cpuCost + left.numTuples * right.cpuCost + pairs,
+            left.numBlockIOs + right.numBlockIOs, left.numLargeSeeks + right.numLargeSeeks);
+        // Copy columns so costing a parent never mutates table statistics.
+        ArrayList<ColumnStats> copied = new ArrayList<>();
+        for (ColumnStats column : stats) copied.add(new ColumnStats(column));
+        stats = joinType == JoinType.LEFT_OUTER ? copied :
+            edu.caltech.nanodb.queryeval.StatisticsUpdater.updateStats(predicate, schema, copied);
     }
 
 

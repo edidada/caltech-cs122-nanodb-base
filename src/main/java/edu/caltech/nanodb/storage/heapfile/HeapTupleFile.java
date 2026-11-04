@@ -355,8 +355,36 @@ public class HeapTupleFile implements TupleFile {
 
     @Override
     public void analyze() {
-        // TODO:  Complete this implementation.
-        throw new UnsupportedOperationException("Not yet implemented!");
+        ColumnStatsCollector[] collectors = new ColumnStatsCollector[schema.numColumns()];
+        for (int i = 0; i < collectors.length; i++)
+            collectors[i] = new ColumnStatsCollector(schema.getColumnInfo(i).getType().getBaseType());
+        int pages = 0, tuples = 0;
+        long bytes = 0;
+        int count = freeSpaceMap.pageCount();
+        for (int page = 3; page < count; page++) {
+            if (!freeSpaceMap.isDataPage(page)) continue;
+            DBPage data = storageManager.loadDBPage(dbFile, page);
+            try {
+                pages++;
+                bytes += DataPage.getTupleDataEnd(data) - DataPage.getTupleDataStart(data);
+                for (int slot = 0; slot < DataPage.getNumSlots(data); slot++) {
+                    int offset = DataPage.getSlotValue(data, slot);
+                    if (offset == DataPage.EMPTY_SLOT) continue;
+                    HeapFilePageTuple tuple = new HeapFilePageTuple(schema, data, slot, offset);
+                    try {
+                        tuples++;
+                        for (int i = 0; i < collectors.length; i++)
+                            collectors[i].addValue(tuple.getColumnValue(i));
+                    }
+                    finally { tuple.unpin(); }
+                }
+            }
+            finally { data.unpin(); }
+        }
+        ArrayList<ColumnStats> columns = new ArrayList<>();
+        for (ColumnStatsCollector collector : collectors) columns.add(collector.getColumnStats());
+        stats = new TableStats(pages, tuples, tuples == 0 ? 0 : (float) bytes / tuples, columns);
+        heapFileManager.saveMetadata(this);
     }
 
 

@@ -225,11 +225,12 @@ public class FileScanNode extends SelectNode {
         schema = tupleFile.getSchema();
         TableStats tableStats = tupleFile.getStats();
 
-        // TODO:  Compute the cost of the plan node!
-        cost = null;
-
-        // TODO:  Update the statistics based on the predicate.
-        stats = tableStats.getAllColumnStats();
+        float selectivity = predicate == null ? 1 : SelectivityEstimator.estimateSelectivity(
+            predicate, schema, tableStats.getAllColumnStats());
+        cost = new PlanCost(tableStats.numTuples * selectivity, tableStats.avgTupleSize,
+            tableStats.numTuples, tableStats.numDataPages, tableStats.numDataPages == 0 ? 0 : 1);
+        stats = edu.caltech.nanodb.queryeval.StatisticsUpdater.updateStats(
+            predicate, schema, tableStats.getAllColumnStats());
     }
 
 

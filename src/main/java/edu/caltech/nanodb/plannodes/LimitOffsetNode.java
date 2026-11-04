@@ -20,7 +20,10 @@ public final class LimitOffsetNode extends PlanNode {
     }
     public void prepare() {
         leftChild.prepare();
-        schema=leftChild.getSchema(); stats=leftChild.getStats(); cost=null;
+        schema=leftChild.getSchema(); stats=leftChild.getStats();
+        cost=new edu.caltech.nanodb.queryeval.PlanCost(leftChild.getCost());
+        cost.numTuples=Math.max(0,cost.numTuples-offset);
+        if (limit>0) cost.numTuples=Math.min(limit,cost.numTuples);
     }
     public List<OrderByExpression> resultsOrderedBy() { return leftChild.resultsOrderedBy(); }
     public boolean supportsMarking() { return false; }
