@@ -761,12 +761,7 @@ public class FromClause {
                 }
 
                 Set<String> commonCols = leftSchema.getCommonColumnNames(rightSchema);
-                if (commonCols.isEmpty()) {
-                    // TODO:  According to the SQL99 standard, this shouldn't
-                    //        generate an error.
-                    throw new SchemaNameException("Natural join error:  " +
-                        "child tables share no common column names!");
-                }
+                // No shared names means a Cartesian product, not an error.
 
                 result = buildJoinSchema("Natural join",
                     leftSchema, rightSchema, commonCols);

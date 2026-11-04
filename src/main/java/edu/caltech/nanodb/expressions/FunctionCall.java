@@ -163,7 +163,7 @@ public class FunctionCall extends Expression {
     public boolean equals(Object obj) {
         if (obj instanceof FunctionCall) {
             FunctionCall other = (FunctionCall) obj;
-            return (funcName.equals(other.funcName) && args.equals(other.args));
+            return (funcName.equals(other.funcName) && distinct == other.distinct && args.equals(other.args));
         }
         return false;
     }
@@ -174,6 +174,7 @@ public class FunctionCall extends Expression {
 
         hash = hash * 31 + funcName.hashCode();
         hash = hash * 31 + args.hashCode();
+        hash = hash * 31 + Boolean.hashCode(distinct);
 
         return hash;
     }

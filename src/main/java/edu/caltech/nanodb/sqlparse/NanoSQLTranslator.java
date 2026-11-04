@@ -882,9 +882,9 @@ public class NanoSQLTranslator extends NanoSQLBaseVisitor<Object> {
                 ColumnName colName = ((ColumnValue) e).getColumnName();
                 if (colName.isColumnWildcard())
                     functionName += "#STAR";
-                else if (distinct)
-                    functionName += "#DISTINCT";
             }
+            if (distinct && !functionName.endsWith("#STAR"))
+                functionName += "#DISTINCT";
         }
         // TODO:  Report error if someone uses DISTINCT with multiple args.
 

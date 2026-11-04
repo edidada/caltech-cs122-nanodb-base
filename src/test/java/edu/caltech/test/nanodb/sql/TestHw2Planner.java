@@ -78,6 +78,11 @@ public class TestHw2Planner extends SqlTestCase {
             Assert.assertEquals(((Number)rows.get(2).getColumnValue(1)).intValue(), 0);
             Assert.assertNull(rows.get(2).getColumnValue(2));
         }
+        List<TupleLiteral> sums=query("SELECT g, SUM(v+1), SUM(DISTINCT v+1) " +
+            "FROM distinct_groups GROUP BY g ORDER BY g");
+        Assert.assertEquals(((Number)sums.get(0).getColumnValue(1)).intValue(),7);
+        Assert.assertEquals(((Number)sums.get(0).getColumnValue(2)).intValue(),5);
+        Assert.assertEquals(((Number)sums.get(1).getColumnValue(2)).intValue(),9);
     }
 
     public void testLimitOffsetWithSortAndEmptyInput() throws Exception {
