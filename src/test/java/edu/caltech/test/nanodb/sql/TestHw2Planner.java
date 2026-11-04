@@ -62,4 +62,21 @@ public class TestHw2Planner extends SqlTestCase {
         reject("SELECT SUM(MAX(a)) FROM invalid_agg", "Nested");
         reject("SELECT * FROM invalid_agg x JOIN invalid_agg y ON SUM(x.a)=y.a", "ON");
     }
+
+    public void testDistinctAggregatesDoNotShareGroupState() throws Exception {
+        tryDoCommand("CREATE TABLE distinct_groups (g INTEGER, v INTEGER);");
+        for (String values : Arrays.asList("1,1", "2,1", "1,2", "2,2", "1,1", "2,3", "3,NULL"))
+            tryDoCommand("INSERT INTO distinct_groups VALUES ("+values+");");
+        for (int repeat = 0; repeat < 2; repeat++) {
+            List<TupleLiteral> rows = query("SELECT g, COUNT(DISTINCT v), SUM(DISTINCT v) " +
+                "FROM distinct_groups GROUP BY g ORDER BY g");
+            Assert.assertEquals(rows.size(), 3);
+            Assert.assertEquals(((Number)rows.get(0).getColumnValue(1)).intValue(), 2);
+            Assert.assertEquals(((Number)rows.get(0).getColumnValue(2)).intValue(), 3);
+            Assert.assertEquals(((Number)rows.get(1).getColumnValue(1)).intValue(), 3);
+            Assert.assertEquals(((Number)rows.get(1).getColumnValue(2)).intValue(), 6);
+            Assert.assertEquals(((Number)rows.get(2).getColumnValue(1)).intValue(), 0);
+            Assert.assertNull(rows.get(2).getColumnValue(2));
+        }
+    }
 }

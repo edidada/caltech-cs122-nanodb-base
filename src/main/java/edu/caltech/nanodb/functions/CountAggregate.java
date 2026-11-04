@@ -55,7 +55,7 @@ public class CountAggregate extends AggregateFunction {
 
     @Override
     public void clearResult() {
-        count = -1;
+        count = 0;
 
         if (distinct) {
             if (sortedInputs)
@@ -102,8 +102,15 @@ public class CountAggregate extends AggregateFunction {
 
     @Override
     public Object getResult() {
-        // A value of -1 indicates a NULL result.
-        return (count == -1 ? null : count);
+        // SQL COUNT returns zero, including empty or all-NULL inputs.
+        return count;
+    }
+
+    @Override
+    public Object clone() throws CloneNotSupportedException {
+        CountAggregate copy = (CountAggregate) super.clone();
+        copy.valuesSeen = new HashSet<>(valuesSeen);
+        return copy;
     }
 
 

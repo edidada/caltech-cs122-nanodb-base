@@ -57,6 +57,13 @@ public class SumAvgAggregate extends AggregateFunction {
             set.clear();
     }
 
+    @Override
+    public Object clone() throws CloneNotSupportedException {
+        SumAvgAggregate copy = (SumAvgAggregate) super.clone();
+        if (set != null) copy.set = new HashSet<>(set);
+        return copy;
+    }
+
 
     @Override
     public void addValue(Object value) {
