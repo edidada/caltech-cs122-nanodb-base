@@ -542,7 +542,8 @@ public class BooleanOperator extends Expression {
         // Type is immutable, copy it.
         expr.type = this.type;
 
-        expr.terms = (ArrayList<Expression>) terms.clone();
+        expr.terms = new ArrayList<>();
+        for (Expression term : terms) expr.terms.add(term.duplicate());
 
         return expr;
     }

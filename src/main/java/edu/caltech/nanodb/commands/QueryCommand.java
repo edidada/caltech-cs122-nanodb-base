@@ -80,6 +80,14 @@ public abstract class QueryCommand extends Command {
 
     @Override
     public void execute(NanoDBServer server) {
+        try {executeQuery(server);}
+        catch(edu.caltech.nanodb.expressions.ExpressionException error) {
+            throw new ExecutionException("Query expression failed",error);
+        }
+    }
+
+    /** Plan and run the query, retaining expression errors as command causes. */
+    private void executeQuery(NanoDBServer server) {
         prepareQueryPlan(server);
 
         if (!explain) {
