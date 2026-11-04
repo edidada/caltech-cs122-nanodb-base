@@ -16,7 +16,9 @@ public class TestHw3Analysis extends SqlTestCase {
     private PlanNode plan(String sql) {
         SelectClause ast=((SelectCommand)server.parseCommand(sql)).getSelectClause();
         ast.computeSchema(server.getStorageManager().getTableManager(),null);
-        return server.getQueryPlanner().makePlan(ast,null);
+        SimplePlanner reference=new SimplePlanner();
+        reference.setStorageManager(server.getStorageManager());
+        return reference.makePlan(ast,null);
     }
     public void testExactStatsDeletesStringsAndMetadataReopen() throws Exception {
         tryDoCommand("CREATE TABLE analyzed (a INTEGER, b VARCHAR(20)) PROPERTIES (pagesize=512);");
