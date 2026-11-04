@@ -12,6 +12,7 @@ import edu.caltech.nanodb.queryast.SelectClause;
 import edu.caltech.nanodb.queryast.SelectValue;
 import edu.caltech.nanodb.relations.JoinType;
 import edu.caltech.nanodb.relations.Schema;
+import edu.caltech.nanodb.relations.ColumnInfo;
 
 /** HW2 correctness-first planner; intentionally no cost-based join reordering.
  * The AST is read-only: rewritten SELECT/HAVING expressions are private copies,
@@ -80,9 +81,24 @@ public class SimplePlanner extends SimplestPlanner {
                 projection.add(new SelectValue(new BoundColumnValue(0, ls.numColumns() + i,
                     output.getColumnInfo(column++))));
         }
+        // Raw input schemas may both contain an unqualified merged key.
+        // Hide their names internally; all bindings above are positional,
+        // and the output projection restores the exact public schema.
+        left = privateJoinInput(left, ls, "L");
+        right = privateJoinInput(right, rs, "R");
         PlanNode join = new NestedLoopJoinNode(left, right, from.getJoinType(),
             keys.isEmpty() ? null : condition);
         return new ProjectNode(join, projection);
+    }
+
+    private PlanNode privateJoinInput(PlanNode input, Schema schema, String side) {
+        List<SelectValue> values = new ArrayList<>();
+        for (int i = 0; i < schema.numColumns(); i++) {
+            ColumnInfo internal = new ColumnInfo("#HW2_" + side + "_" + i,
+                schema.getColumnInfo(i).getType());
+            values.add(new SelectValue(new BoundColumnValue(0, i, internal)));
+        }
+        return new ProjectNode(input, values);
     }
 
     private static final class GroupReferences implements ExpressionProcessor {
