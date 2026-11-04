@@ -21,7 +21,7 @@ public class TestHw5Planning extends SqlTestCase {
         tryDoCommand("INSERT INTO "+prefix+"b VALUES (2,8);");
         tryDoCommand("ANALYZE "+prefix+"a;");tryDoCommand("ANALYZE "+prefix+"b;");
     }
-    private void expected(String sql,TupleLiteral... rows) {
+    private void expected(String sql,TupleLiteral... rows) throws Exception {
         CommandResult result=server.doCommand(sql,true);
         Assert.assertFalse(result.failed(),String.valueOf(result.getFailure()));
         Assert.assertTrue(checkSizeResults(rows,result),sql);
