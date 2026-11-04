@@ -133,7 +133,10 @@ public class LeafPageOperations {
         // Leaf pages know their right sibling, so that's why finding the
         // right page doesn't require the innerPageOps object.
         int leftPageNo = leaf.getLeftSibling(pagePath, innerPageOps);
-        int rightPageNo = leaf.getRightSibling(pagePath);
+        InnerPage immediateParent = innerPageOps.loadPage(pagePath.get(pagePath.size() - 2));
+        int position = immediateParent.getIndexOfPointer(leafPageNo);
+        int rightPageNo = position + 1 < immediateParent.getNumPointers() ?
+            immediateParent.getPointer(position + 1) : -1;
 
         logger.debug(String.format("Leaf page %d is too empty.  Left " +
             "sibling is %d, right sibling is %d.", leafPageNo, leftPageNo,
@@ -237,8 +240,29 @@ public class LeafPageOperations {
 
             // Left sibling can be null if leaf is the first leaf node in the
             // sequence of the btree.
-            if (leftSibling != null)
-                leftSibling.setNextPageNo(rightPageNo);
+            if (leftSibling != null) leftSibling.setNextPageNo(rightPageNo);
+            else {
+                // The global predecessor may have a different immediate parent.
+                // Parent-local sibling lookup is insufficient for unlinking L.
+                DBPage header = storageManager.loadDBPage(tupleFile.getDBFile(),0);
+                try {
+                    int page = HeaderPage.getFirstLeafPageNo(header);
+                    if (page == leafPageNo) HeaderPage.setFirstLeafPageNo(header,rightPageNo);
+                    else {
+                        boolean linked = false;
+                        java.util.Set<Integer> visited = new java.util.HashSet<>();
+                        while (page != 0 && visited.add(page)) {
+                            LeafPage predecessor = loadLeafPage(page);
+                            int next = predecessor.getNextPageNo();
+                            if (next == leafPageNo) {predecessor.setNextPageNo(rightPageNo);linked = true;break;}
+                            page = next;
+                        }
+                        if (!linked)
+                            throw new IllegalStateException("Missing predecessor for leaf " + leafPageNo);
+                    }
+                }
+                finally {header.unpin();}
+            }
 
             logger.debug(String.format("After coalesce-right, page has %d " +
                 "tuples and right sibling has %d tuples.",
