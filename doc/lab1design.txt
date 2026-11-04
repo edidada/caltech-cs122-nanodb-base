@@ -61,7 +61,7 @@ C3.  The storage layer records a number of statistics, e.g. pagesRead,
      these statistics did your team observe after changing the heap-file
      implementation?  Explain why you believe these to be improvements.
 
-Answer: Full official 20k, 50k, 50k-delete first-fit/map measurements are running on GitHub Actions. No performance numbers are claimed yet; replace this answer with verified counters before marking HW1 complete.
+Answer: Full workloads and the independent final-table hashes passed. ins20k.sql: reads 3306266 -> 80000, writes 20000 -> 59960, fileChanges 0 -> 0, sector-distance 105144752 -> 108828112, bytes 2703360 -> 2719744. ins50k.sql: reads 20646319 -> 200000, writes 50000 -> 149948, fileChanges 0 -> 0, sector-distance 659042640 -> 674811760, bytes 6766592 -> 6782976. ins50k-del.sql: reads 13662118 -> 288412, writes 61680 -> 147476, fileChanges 0 -> 0, sector-distance 458518272 -> 472402592, bytes 5013504 -> 5029888. Reads drop 97.58-99.03%; files grow only 0.24-0.61%. Metadata increases writes and sector-distance (2.39-3.50%); this tradeoff is disclosed, not called an improvement in every counter. Full settings, timings and evidence are in reports/hw1.md and hw1-performance.json.
 
 C4.  Describe your criteria for when a page is considered to be "full."
 

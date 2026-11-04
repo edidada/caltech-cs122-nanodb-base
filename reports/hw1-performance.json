@@ -1,0 +1,103 @@
+{
+  "source_commit": "8f97d95844d9420b1cc2b52a0e96a2a6c01da473",
+  "run_url": "https://github.com/edidada/caltech-cs122-nanodb-base/actions/runs/41743000142",
+  "run_conclusion": "success",
+  "verified_at": "2026-11-04",
+  "maven": {
+    "tests": 149,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "gradle": {
+    "tests": 149,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baseline_commit": "d93810fc433c948a2f4ff701e28a96319096745a",
+  "settings": {
+    "page_size": 8192,
+    "pagecache_bytes": 1048576,
+    "flushAfterCmd": true,
+    "enforceKeyConstraints": false
+  },
+  "performance": {
+    "first_fit": {
+      "ins20k.sql": {
+        "workload": "ins20k.sql",
+        "statements": 20000,
+        "rows": 20000,
+        "bytes": 2703360,
+        "pagesRead": 3306266,
+        "pagesWritten": 20000,
+        "fileChanges": 0,
+        "fileDistanceTraveled": 105144752,
+        "seconds": 14.749179,
+        "rowsSha256": "09e977fcb515980562ab1e9de0d2538bc6ce507f17a61a3264404f38042077bd"
+      },
+      "ins50k.sql": {
+        "workload": "ins50k.sql",
+        "statements": 50000,
+        "rows": 50000,
+        "bytes": 6766592,
+        "pagesRead": 20646319,
+        "pagesWritten": 50000,
+        "fileChanges": 0,
+        "fileDistanceTraveled": 659042640,
+        "seconds": 87.32831,
+        "rowsSha256": "3c19f5db5f79ff0be84068d90b496d89159c47a90595be19312edf1e53edf843"
+      },
+      "ins50k-del.sql": {
+        "workload": "ins50k-del.sql",
+        "statements": 50267,
+        "rows": 36993,
+        "bytes": 5013504,
+        "pagesRead": 13662118,
+        "pagesWritten": 61680,
+        "fileChanges": 0,
+        "fileDistanceTraveled": 458518272,
+        "seconds": 61.653809,
+        "rowsSha256": "587d8e2f7ed4fb42eddefb0c940c9f49dc216f91960fc9d4911a2e0b5a948dda"
+      }
+    },
+    "indexed": {
+      "ins20k.sql": {
+        "workload": "ins20k.sql",
+        "statements": 20000,
+        "rows": 20000,
+        "bytes": 2719744,
+        "pagesRead": 80000,
+        "pagesWritten": 59960,
+        "fileChanges": 0,
+        "fileDistanceTraveled": 108828112,
+        "seconds": 1.681164,
+        "rowsSha256": "09e977fcb515980562ab1e9de0d2538bc6ce507f17a61a3264404f38042077bd"
+      },
+      "ins50k.sql": {
+        "workload": "ins50k.sql",
+        "statements": 50000,
+        "rows": 50000,
+        "bytes": 6782976,
+        "pagesRead": 200000,
+        "pagesWritten": 149948,
+        "fileChanges": 0,
+        "fileDistanceTraveled": 674811760,
+        "seconds": 3.083768,
+        "rowsSha256": "3c19f5db5f79ff0be84068d90b496d89159c47a90595be19312edf1e53edf843"
+      },
+      "ins50k-del.sql": {
+        "workload": "ins50k-del.sql",
+        "statements": 50267,
+        "rows": 36993,
+        "bytes": 5029888,
+        "pagesRead": 288412,
+        "pagesWritten": 147476,
+        "fileChanges": 0,
+        "fileDistanceTraveled": 472402592,
+        "seconds": 7.021819,
+        "rowsSha256": "587d8e2f7ed4fb42eddefb0c940c9f49dc216f91960fc9d4911a2e0b5a948dda"
+      }
+    }
+  }
+}
