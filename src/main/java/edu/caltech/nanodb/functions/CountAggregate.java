@@ -72,9 +72,6 @@ public class CountAggregate extends AggregateFunction {
         if (value == null)
             return;
 
-        if (count == -1)
-            count = 0;
-
         // Counting distinct values requires more checking than just counting
         // any value that comes through.
         if (distinct) {

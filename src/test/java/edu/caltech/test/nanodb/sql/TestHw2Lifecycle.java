@@ -77,7 +77,7 @@ public class TestHw2Lifecycle extends SqlTestCase {
     public void testReplanningOneAggregateAstDoesNotMutateIt() throws Exception {
         tryDoCommand("CREATE TABLE lifecycle_agg (a INTEGER, b INTEGER);");
         for (String values : new String[]{"1,2", "2,1", "2,3"})
-            tryDoCommand("INSERT INTO lifecycle_agg VALUES ("+values+");
+            tryDoCommand("INSERT INTO lifecycle_agg VALUES ("+values+");");
         SelectClause ast = select("SELECT a+b AS g, ABS(SUM(a*b)+MAX(a)) AS v " +
             "FROM lifecycle_agg GROUP BY a+b HAVING COUNT(*)>1 ORDER BY g");
         String original = ast.toString();
