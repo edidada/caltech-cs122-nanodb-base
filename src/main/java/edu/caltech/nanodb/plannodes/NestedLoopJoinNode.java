@@ -118,6 +118,13 @@ public class NestedLoopJoinNode extends ThetaJoinNode {
     @Override
     protected PlanNode clone() throws CloneNotSupportedException {
         NestedLoopJoinNode node = (NestedLoopJoinNode) super.clone();
+        // Runtime tuple pins belong to the original node, never its clone.
+        node.leftTuple = null;
+        node.rightTuple = null;
+        node.done = false;
+        node.matchedLeft = false;
+        node.emitted = 0;
+        node.marked = -1;
 
         // Clone the predicate.
         if (predicate != null)
