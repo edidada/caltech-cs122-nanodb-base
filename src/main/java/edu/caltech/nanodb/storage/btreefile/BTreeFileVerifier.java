@@ -186,7 +186,7 @@ public class BTreeFileVerifier {
         DBPage dbpHeader = storageManager.loadDBPage(dbFile, 0);
         int rootPageNo = HeaderPage.getRootPageNo(dbpHeader);
 
-        scanTree(rootPageNo, 0, null, null);
+        if (rootPageNo != 0) scanTree(rootPageNo, 0, null, null);
     }
 
 
