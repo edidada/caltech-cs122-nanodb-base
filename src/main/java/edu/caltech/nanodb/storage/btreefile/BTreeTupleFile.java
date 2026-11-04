@@ -190,11 +190,15 @@ public class BTreeTupleFile implements SequentialTupleFile {
         TupleLiteral noTup = new TupleLiteral();
         LeafPage leaf = navigateToLeafPage(noTup, false, null);
 
-        if (leaf != null && leaf.getNumTuples() > 0)
-            tup = leaf.getTuple(0);
-
-        tup.pin();
-        return tup;
+        if (leaf == null) return null;
+        try {
+            if (leaf.getNumTuples() > 0) {
+                tup = leaf.getTuple(0);
+                tup.pin();
+            }
+            return tup;
+        }
+        finally {leaf.getDBPage().unpin();}
     }
 
 

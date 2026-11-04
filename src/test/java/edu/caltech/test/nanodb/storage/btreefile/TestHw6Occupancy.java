@@ -74,4 +74,18 @@ public class TestHw6Occupancy extends SqlTestCase {
         Assert.assertTrue(file.verify().isEmpty());
     }
 
+    public void testEmptyAndEmptiedTreeDirectScan() throws Exception {
+        tryDoCommand("CREATE TABLE empty_btree (k INTEGER) PROPERTIES (storage='btree');");
+        BTreeTupleFile file=(BTreeTupleFile)server.getStorageManager().getTableManager().openTable("empty_btree").getTupleFile();
+        Assert.assertNull(file.getFirstTuple());
+        Assert.assertNull(file.findFirstTupleEquals(new edu.caltech.nanodb.expressions.TupleLiteral(1)));
+        Assert.assertNull(file.findFirstTupleGreaterThan(new edu.caltech.nanodb.expressions.TupleLiteral(1)));
+        tryDoCommand("INSERT INTO empty_btree VALUES (1);");
+        tryDoCommand("DELETE FROM empty_btree;");
+        Assert.assertNull(file.getFirstTuple());
+        Assert.assertNull(file.findFirstTupleEquals(new edu.caltech.nanodb.expressions.TupleLiteral(1)));
+        Assert.assertNull(file.findFirstTupleGreaterThan(new edu.caltech.nanodb.expressions.TupleLiteral(1)));
+        Assert.assertTrue(file.verify().isEmpty());
+    }
+
 }
