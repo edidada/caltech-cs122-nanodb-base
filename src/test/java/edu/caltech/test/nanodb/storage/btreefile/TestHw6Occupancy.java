@@ -72,6 +72,16 @@ public class TestHw6Occupancy extends SqlTestCase {
         finally {greater.unpin();}
         Assert.assertNull(file.findFirstTupleGreaterThan(new edu.caltech.nanodb.expressions.TupleLiteral(2)));
         Assert.assertTrue(file.verify().isEmpty());
+        // Emptying a non-root leaf may coalesce zero surviving tuples.
+        tryDoCommand("DELETE FROM prefix_lookup WHERE a=1;");
+        Assert.assertTrue(file.verify().isEmpty());
+        edu.caltech.nanodb.relations.Tuple remaining=file.getFirstTuple();
+        Assert.assertNotNull(remaining);
+        try {Assert.assertEquals(remaining.getColumnValue(0),2);}
+        finally {remaining.unpin();}
+        tryDoCommand("DELETE FROM prefix_lookup;");
+        Assert.assertNull(file.getFirstTuple());
+        Assert.assertTrue(file.verify().isEmpty());
     }
 
     public void testEmptyAndEmptiedTreeDirectScan() throws Exception {

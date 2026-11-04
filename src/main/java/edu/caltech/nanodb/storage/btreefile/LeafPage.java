@@ -617,6 +617,8 @@ public class LeafPage implements DataPage {
                 numTuples + "), got " + count);
         }
 
+        if (count == 0) return;
+
         int moveEndOffset = getTuple(count - 1).getEndOffset(); //getTuple(count).getOffset()
         int len = moveEndOffset - OFFSET_FIRST_TUPLE;
 
@@ -669,6 +671,8 @@ public class LeafPage implements DataPage {
             throw new IllegalArgumentException("count must be in range [0, " +
                 numTuples + "), got " + count);
         }
+
+        if (count == 0) return;
 
         int startOffset = getTuple(numTuples - count).getOffset();
         int len = endOffset - startOffset;
