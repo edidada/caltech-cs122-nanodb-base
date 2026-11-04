@@ -108,4 +108,26 @@ public class TestHw2Planner extends SqlTestCase {
         tryDoCommand("INSERT INTO natural_right VALUES (2);");
         Assert.assertEquals(query("SELECT * FROM natural_left NATURAL JOIN natural_right").size(),1);
     }
+
+    public void testUsingOuterJoinMergedKeyAndMissingRightKey() throws Exception {
+        tryDoCommand("CREATE TABLE using_left (k INTEGER, l INTEGER);");
+        tryDoCommand("CREATE TABLE using_right (k INTEGER, r INTEGER);");
+        for (String values : Arrays.asList("1,10", "2,20"))
+            tryDoCommand("INSERT INTO using_left VALUES ("+values+");");
+        for (String values : Arrays.asList("1,100", "3,300"))
+            tryDoCommand("INSERT INTO using_right VALUES ("+values+");");
+        List<TupleLiteral> left=query("SELECT * FROM using_left LEFT JOIN using_right USING(k) ORDER BY k");
+        Assert.assertEquals(left.size(),2);
+        Assert.assertEquals(left.get(1).getColumnValue(0),2);
+        Assert.assertEquals(left.get(1).getColumnValue(1),20);
+        Assert.assertNull(left.get(1).getColumnValue(2));
+        List<TupleLiteral> right=query("SELECT * FROM using_left RIGHT JOIN using_right USING(k) ORDER BY k");
+        Assert.assertEquals(right.size(),2);
+        Assert.assertEquals(right.get(1).getColumnValue(0),3);
+        Assert.assertNull(right.get(1).getColumnValue(1));
+        Assert.assertEquals(right.get(1).getColumnValue(2),300);
+        CommandResult bad=server.doCommand("SELECT * FROM using_left JOIN using_right USING(l)",true);
+        Assert.assertTrue(bad.failed());
+        Assert.assertTrue(bad.getFailure().getMessage().contains("right"),String.valueOf(bad.getFailure()));
+    }
 }
