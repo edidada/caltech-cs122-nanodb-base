@@ -342,29 +342,20 @@ public class TransactionManager implements BufferManagerObserver {
      */
     @Override
     public void beforeWriteDirtyPages(List<DBPage> pages) {
-        // TODO:  IMPLEMENT
-        //
-        // This implementation must enforce the write-ahead logging rule (aka
-        // the WAL rule) by ensuring that the write-ahead log reflects all
-        // changes to all of the specified pages, on disk, before any of these
-        // pages may be written to disk.
-        //
-        // Recall that DBPages have a pageLSN field that is set to the LSN
-        // of the last WAL record describing a change to the page.  This value
-        // is not always set; it will be null if the page is part of a data
-        // file whose type is not logged.  (It may also be null if there is a
-        // bug in the write-ahead logging code.  It would be wise to report a
-        // warning, or throw an exception, if a page doesn't have a LSN when
-        // it ought to.)
-        //
-        // Some file types are not recorded to the write-ahead log; these
-        // pages should be ignored when determining how to update the WAL.
-        // You can find a page's file-type by doing something like this:
-        // dbPage.getDBFile().getType().  If it is WRITE_AHEAD_LOG_FILE or
-        // TXNSTATE_FILE then you should ignore the page.
-        //
-        // Finally, you can use the forceWAL(LogSequenceNumber) function to
-        // force the WAL to be written out to the specified LSN.
+        LogSequenceNumber latest = null;
+        for (DBPage page : pages) {
+            DBFileType type = page.getDBFile().getType();
+            if (type == DBFileType.WRITE_AHEAD_LOG_FILE || type == DBFileType.TXNSTATE_FILE)
+                continue;
+            LogSequenceNumber pageLSN = page.getPageLSN();
+            if (pageLSN == null)
+                throw new IllegalStateException("Dirty data page has no WAL LSN: " +
+                    page.getDBFile() + " page " + page.getPageNo());
+            if (latest == null || pageLSN.compareTo(latest) > 0) latest = pageLSN;
+        }
+        // Flush once for the entire batch, before the observer returns and
+        // BufferManager is permitted to write any data page in the batch.
+        if (latest != null) forceWAL(latest);
     }
 
 
