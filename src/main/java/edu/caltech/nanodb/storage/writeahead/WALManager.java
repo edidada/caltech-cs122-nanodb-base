@@ -297,6 +297,7 @@ public class WALManager {
         logger.debug("Starting redo processing at LSN " + currLSN);
 
         DBFileReader walReader = null;
+        try {
         while (currLSN.compareTo(recoveryInfo.nextLSN) < 0) {
             walReader = getWALFileReader(currLSN, walReader);
 
@@ -354,8 +355,9 @@ public class WALManager {
             currLSN = computeNextLSN(currLSN.getLogFileNo(), walReader.getPosition());
         }
 
-        if (walReader != null)
-            walReader.close();
+        }
+        finally {if (walReader != null) walReader.close();}
+
 
         if (currLSN.compareTo(recoveryInfo.nextLSN) != 0) {
             throw new DataFormatException("Traversing WAL file didn't yield " +
@@ -391,6 +393,7 @@ public class WALManager {
         java.util.Map<Integer,LogSequenceNumber> undoNext =
             new java.util.HashMap<>(recoveryInfo.incompleteTxns);
         DBFileReader walReader = null;
+        try {
         while (recoveryInfo.hasIncompleteTxns()) {
             // Compute LSN of previous WAL record.  Start by getting the last
             // byte of the previous WAL record.
@@ -539,7 +542,9 @@ public class WALManager {
             }
         }
 
-        if (walReader != null) walReader.close();
+        }
+        finally {if (walReader != null) walReader.close();}
+
         if (recoveryInfo.hasIncompleteTxns())
             throw new WALFileException("Recovery range ended before all incomplete transactions reached START");
         logger.debug("Undo processing is complete.");
@@ -1216,6 +1221,7 @@ public class WALManager {
         // it back.
 
         DBFileReader walReader = null;
+        try {
         while (true) {
             walReader = getWALFileReader(lsn, walReader);
 
@@ -1262,6 +1268,9 @@ public class WALManager {
             }
             lsn = previous;
         }
+
+        }
+        finally {if (walReader != null) walReader.close();}
 
         // All done rolling back the transaction!  Record that it was aborted
         // in the WAL.
