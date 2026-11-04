@@ -97,6 +97,26 @@ public class TestHw4Optimizer extends SqlTestCase {
         equivalent("SELECT * FROM (merged2 JOIN merged3 USING(q)) CROSS JOIN (merged0 JOIN merged1 USING(k))");
     }
 
+    /** Empty inputs and constant predicates must preserve null-extension rules. */
+    public void testEmptyInputsAndConstantOuterPredicates() throws Exception {
+        tryDoCommand("CREATE TABLE edgefull (k INTEGER);");
+        tryDoCommand("CREATE TABLE edgeempty (k INTEGER);");
+        tryDoCommand("INSERT INTO edgefull VALUES (1);");
+        tryDoCommand("INSERT INTO edgefull VALUES (NULL);");
+        tryDoCommand("ANALYZE edgefull;");
+        tryDoCommand("ANALYZE edgeempty;");
+        equivalent("SELECT * FROM edgefull a LEFT JOIN edgeempty b ON a.k=b.k");
+        equivalent("SELECT * FROM edgeempty a RIGHT JOIN edgefull b ON a.k=b.k");
+        equivalent("SELECT * FROM edgeempty a LEFT JOIN edgefull b ON a.k=b.k");
+        equivalent("SELECT * FROM edgefull a RIGHT JOIN edgeempty b ON a.k=b.k");
+        equivalent("SELECT * FROM edgefull a JOIN edgeempty b ON a.k=b.k");
+        for(String kind:new String[]{"LEFT","RIGHT"}) {
+            equivalent("SELECT * FROM edgefull a "+kind+" JOIN edgefull b ON 1=0");
+            equivalent("SELECT * FROM edgefull a "+kind+" JOIN edgefull b ON a.k=b.k WHERE 1=0");
+            equivalent("SELECT * FROM edgefull a "+kind+" JOIN edgefull b ON 1=1 WHERE b.k IS NULL");
+        }
+    }
+
     /** An independent scalar oracle enumerates all 24 four-table orders.
      * No optimizer helper or DP implementation is called by the oracle. */
     public void testFourTableOrderMatchesExhaustiveCostOracle() throws Exception {
