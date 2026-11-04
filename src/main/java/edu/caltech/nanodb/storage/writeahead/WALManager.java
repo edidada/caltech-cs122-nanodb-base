@@ -609,6 +609,21 @@ public class WALManager {
      * @throws StorageException if the corresponding WAL file cannot be
      *         opened, or if some other IO error occurs.
      */
+    /** Preserve the exact logical end of the previous log before page padding.
+     * Creating the next header immediately also survives shutdown at a boundary. */
+    private void advanceNextLSN(int endOffset) {
+        int oldFile = nextLSN.getLogFileNo();
+        LogSequenceNumber next = computeNextLSN(oldFile,endOffset);
+        if (next.getLogFileNo() != oldFile) {
+            DBFile file = openWALFile(next.getLogFileNo());
+            if (file == null) file = createWALFile(next.getLogFileNo());
+            DBPage header = storageManager.loadDBPage(file,0);
+            try {header.writeInt(OFFSET_PREV_FILE_END,endOffset);}
+            finally {header.unpin();}
+        }
+        nextLSN = next;
+    }
+
     private DBFileWriter getWALFileWriter(LogSequenceNumber lsn) {
         int fileNo = lsn.getLogFileNo();
         int offset = lsn.getFileOffset();
@@ -621,8 +636,9 @@ public class WALManager {
             }
 
             walFile = createWALFile(fileNo);
-            // TODO:  Write the previous WAL file's last file-offset into
-            //        the new WAL file's start.
+            DBPage header = storageManager.loadDBPage(walFile,0);
+            try {header.writeInt(OFFSET_PREV_FILE_END,0);}
+            finally {header.unpin();}
         }
 
         DBFileWriter writer = new DBFileWriter(walFile, storageManager);
@@ -757,8 +773,7 @@ public class WALManager {
                 lsn = new LogSequenceNumber(lsn, 12);
             }
 
-            nextLSN = computeNextLSN(nextLSN.getLogFileNo(),
-                walWriter.getPosition());
+            advanceNextLSN(walWriter.getPosition());
 
             if (logger.isDebugEnabled())
                 logger.debug("Next-LSN value is now %s", nextLSN);
@@ -942,7 +957,7 @@ public class WALManager {
             // transaction, update the "last LSN" value for the transaction.
             txnState.setLastLSN(lsn);
 
-            nextLSN = computeNextLSN(nextLSN.getLogFileNo(), walWriter.getPosition());
+            advanceNextLSN(walWriter.getPosition());
 
             walWriter.close();
         }
@@ -1126,7 +1141,7 @@ public class WALManager {
             dbPage.setPageLSN(lsn);
             dbPage.syncOldPageData();
 
-            nextLSN = computeNextLSN(nextLSN.getLogFileNo(), walWriter.getPosition());
+            advanceNextLSN(walWriter.getPosition());
 
             walWriter.close();
 

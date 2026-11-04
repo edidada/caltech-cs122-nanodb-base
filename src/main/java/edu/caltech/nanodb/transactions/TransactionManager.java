@@ -381,8 +381,11 @@ public class TransactionManager implements BufferManagerObserver {
         BufferManager buffer = storageManager.getBufferManager();
         for (int fileNo = txnStateNextLSN.getLogFileNo(); fileNo <= end.getLogFileNo(); fileNo++) {
             // End at the next file's first-record position needs no new file.
-            if (fileNo == end.getLogFileNo() && end.getFileOffset() == WALManager.OFFSET_FIRST_RECORD)
+            if (fileNo == end.getLogFileNo() && end.getFileOffset() == WALManager.OFFSET_FIRST_RECORD) {
+                DBFile boundary = storageManager.openDBFile(WALManager.getWALFileName(fileNo));
+                if (boundary != null) buffer.writeDBFile(boundary,0,0,true);
                 break;
+            }
             DBFile file = storageManager.openDBFile(WALManager.getWALFileName(fileNo));
             if (file == null || file.getType() != DBFileType.WRITE_AHEAD_LOG_FILE)
                 throw new IllegalStateException("Missing or invalid WAL file " + fileNo);
