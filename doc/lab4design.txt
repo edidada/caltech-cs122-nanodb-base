@@ -110,6 +110,15 @@ D<i>:  <one-line description>
 
      <brief summary of test-cases that demonstrate/exercise your extra work>
 
+Prepared validation (not executed yet): TestHw4Optimizer includes a separate
+scalar enumeration of all 24 four-table join orders. It computes the HW3 CPU
+recurrence without calling optimizer helpers, compares the core join cost,
+and differentially executes against SimplePlanner. Separate cases cover
+inner source-order variants, schema restoration, outer ON/WHERE safety,
+derived/grouping queries, OR, disconnected inputs and self joins. The full
+stores-28K driver compares complete result hashes and canonical join trees.
+These are pending checks, not passing evidence.
+
 E:  Feedback [OPTIONAL]
 -----------------------
 

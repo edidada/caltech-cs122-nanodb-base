@@ -14,9 +14,9 @@
 
 ## 验证准备和当前状态
 
-独立 `.github/workflows/hw4.yml` 为 JDK17 Maven/Gradle，组为 framework/parser/HW1～HW4，并运行完整 stores-28K。新增差分用例比较 SimplePlanner 与优化器的全行多重集合、schema、表顺序、重复/NULL键、左右外连接 WHERE/ON 区别、派生表、聚合、OR、不相连输入和自连接；这些用例**尚未执行**。
+独立 `.github/workflows/hw4.yml` 为 JDK17 Maven/Gradle，组为 framework/parser/HW1～HW4，并运行完整 stores-28K。新增差分用例比较 SimplePlanner 与优化器的全行多重集合、schema、表顺序、重复/NULL键、左右外连接 WHERE/ON 区别、派生表、聚合、OR、不相连输入和自连接；另有四表24种顺序的独立标量成本枚举，用于检查动态规划结果；公共列序恢复投影的成本与核心连接成本分开比较。括号嵌套AND递归展开，OR/NOT保持整体。这些用例**尚未执行**。
 
-`scripts/hw4_experiments.py` 复用完整数据驱动，增加 Oregon 表/条件顺序及 ON/WHERE 变体，准备检查核心连接计划一致、完整结果哈希一致，并与已保存 HW3 查询哈希及成本比较。不能用已通过的 HW3 结果代替 HW4 的执行结果。[设计题](../doc/lab4design.txt) 的实现说明已填写，C1～C4 实际 EXPLAIN 待执行后补入。
+`scripts/hw4_experiments.py` 复用完整数据驱动，增加 Oregon 表/条件顺序及 ON/WHERE 变体，准备检查核心连接计划一致（排除可选输出列序投影及最终摘要，并归一化缩进）、完整结果哈希一致，并与已保存 HW3 查询哈希及成本比较。不能用已通过的 HW3 结果代替 HW4 的执行结果。[设计题](../doc/lab4design.txt) 的实现说明已填写，C1～C4 实际 EXPLAIN 待执行后补入。
 
 发布时 GitHub 拒绝当前 OAuth App 新增工作流，明确报错缺少 `workflow` scope；现有 edidada SSH 身份也认证失败。本机仅编辑、Python AST 与 `git diff --check` 静态检查，未本地编译/测试，未捏造远端 CI。需要恢复已有 GitHub 登录的 workflow 权限后，继续发布、读取失败日志并修复，直至最终 SHA 的双构建及完整数据实验完成。
 
