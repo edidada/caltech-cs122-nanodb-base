@@ -127,9 +127,29 @@ A8.  Consider a variation of the approach in A7:  Instead of making one pass
      On average, how full will the leaf pages in the newly generated file be?
      Explain your answer.
 
-A7/A8 status: pending analysis of this implementation's sibling relocation
-policy. Do not infer textbook split-only occupancy percentages without
-accounting for tryLeafRelocateForSpace; no measured occupancy is claimed.
+Answer A7: Approximately full for large equal-size records in this
+implementation, rather than the 50% average of split-only insertion. On
+ascending insertion, a full rightmost leaf first moves its smallest tuples
+to the left sibling before splitting, progressively filling that sibling.
+The relocation code reserves extra space conservatively; the rightmost leaf
+and leaves adjacent to parent-boundary splits can remain partly filled.
+Thus there is no exact universal percentage independent of key width,
+fanout and record count. In the actual 6000-row, INTEGER+CHAR(128), 8192-byte
+page experiment, 102 leaves contain 798000 tuple bytes out of 835584 page
+bytes: 95.502068% mean (minimum 63.317871%, maximum 99.035645%).
+
+Answer A8: Also high occupancy here, not a guaranteed doubling of an assumed
+50%-full first pass. The odd-key pass already fills most leaves using left
+relocation; the even-key pass therefore causes further relocation/splits.
+Its final distribution depends on parent boundaries and the finite tail.
+The same actual dataset produces 103 leaves and 798000/843776=94.574863%
+mean (minimum 50.329590%, maximum 99.035645%). These are measured examples,
+not a claim that every two-pass rebuild has that exact occupancy. The ideal
+near-full asymptote is constrained by per-page header/key rounding and the
+implementation's reserved relocation space. Source and provenance are in
+reports/hw6-occupancy.json, Actions 41863122155. This individual experiment
+passed in a run whose overall suite still had four unrelated failures;
+it does not constitute whole-assignment acceptance.
 
 D:  Extra Credit [OPTIONAL]
 ---------------------------
