@@ -23,3 +23,5 @@ forceWAL第一阶段实现（未验证）：用记录偏移+recordSize计算排�
 新增真实事务测试（未执行）：显式nanodb.enableTransactions=true并断言TransactionManager存在，启用每命令flush，在普通heap表执行INSERT提交、UPDATE+INSERT回滚、DELETE回滚、再次提交，检查事务内/回滚后的完整有序结果，并关闭重启再次检查持久值。普通列heap表用于独立验证WAL，不等于声明BTree索引事务已通过。尚缺强杀进程、跨文件和恢复中再崩溃测试。
 
 异常清理补齐（静态检查，未执行）：performRedo、performUndo和显式rollback的reader生命周期统一使用try/finally；解码、页面加载、撤销或写补偿失败时也关闭reader，释放其当前缓存页引用。正常完成和异常路径不重复依赖末尾close。已实际下载官方Lab7说明44293字节用于要求核对，文件仅缓存在.git。
+
+官方要求复核：heap数据页、元数据及HW1空闲空间树的修改已有logDBPageWrite调用。applyRedo/applyUndo现拒绝零长或超出页面范围的日志分段，在写页前报告WALFileException；不把损坏日志产生的越界写当作普通存储错误。此项只保护分段范围，尚不能替代截断记录、坏尾部与全记录预验证测试。默认事务开启与flush-after-command关闭仍未全局切换，当前仅专用测试显式开启，官方配置要求未完成。

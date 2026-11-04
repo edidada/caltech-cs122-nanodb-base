@@ -1003,6 +1003,9 @@ public class WALManager {
             // data that will be recorded at that index.
             int index = walReader.readUnsignedShort();
             int size = walReader.readUnsignedShort();
+            if (size == 0 || index > dbPage.getPageSize() - size)
+                throw new WALFileException("Invalid redo segment range " + index + ":" + size);
+
 
             // If it's an UPDATE_PAGE record, skip over the undo data.
             if (type == WALRecordType.UPDATE_PAGE)
@@ -1045,6 +1048,9 @@ public class WALManager {
                 // Read the starting index and length of this segment.
                 int index = walReader.readUnsignedShort();
                 int size = walReader.readUnsignedShort();
+                if (size == 0 || index > dbPage.getPageSize() - size)
+                    throw new WALFileException("Invalid undo segment range " + index + ":" + size);
+
 
                 // Apply the undo data to the data page.
                 byte[] undoData = new byte[size];
