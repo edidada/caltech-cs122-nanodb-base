@@ -21,13 +21,29 @@ A1.  What is the total size of the index's search-key for the primary-key
      byte-level in your answer, but you should show what each byte is a
      part of.)
 
+Answer A1: The stored full index tuple is 9 bytes: one NULL bitmap byte
+for two columns, four bytes for the non-NULL INTEGER id, and four bytes
+for the table-row FilePointer (two-byte page number + two-byte offset).
+The pointer is part of the complete key, distinguishing equal indexed
+values in non-unique indexes. No per-tuple slot-directory entry is stored.
+
 A2.  What is the maximum number of search-keys that can be stored in leaf
      nodes of NanoDB's B+ tree implementation?  You should assume a page-
      size of 8192 bytes.
 
+Answer A2: LeafPage.OFFSET_FIRST_TUPLE is 5: one page-type byte, two
+next-leaf bytes, two tuple-count bytes. floor((8192-5)/9)=909 full keys
+fit (8181 key bytes, 6 unused bytes). This assumes the stated INTEGER
+primary key and non-NULL FilePointer, not arbitrary variable-width keys.
+
 A3.  What is the maximum number of keys that can be stored in inner nodes
      of this particular implementation?  (Recall that every key must have
      a page-pointer on either side of the key.)
+
+Answer A3: InnerPage.OFFSET_FIRST_POINTER is 5. For k keys there are
+k+1 two-byte child pointers, so 5+9k+2(k+1)<=8192. Therefore
+floor((8192-7)/11)=744 keys, with 745 pointers, consume 8191 bytes.
+The child page pointer (2 bytes) differs from a row FilePointer (4 bytes).
 
 A4.  In this implementation, leaf nodes do not reference the previous
      leaf, only the next leaf.  When splitting a leaf into two leaves,
@@ -38,6 +54,12 @@ A4.  In this implementation, leaf nodes do not reference the previous
      answer be instead?
 
      Make sure to explain your answers.
+
+Answer A4: At most two leaf pages: old L and new R. R.next takes
+old L.next, then L.next becomes R. The former successor is untouched.
+With previous links, at most three leaf pages are needed: L, R, and the
+former successor whose prev must become R. Parent/header pages are
+separate and are not included in this leaf-only count.
 
 A5.  In this implementation, nodes do not store a page-pointer to their
      parent node.  This makes the update process somewhat complicated, as
@@ -54,6 +76,15 @@ A5.  In this implementation, nodes do not store a page-pointer to their
      nodes do not record their parents?  Which one would you recommend?
      Justify your answer.
 
+Answer A5: Persistent parent pointers cost space in every node and
+require changing the parent pointer of each child transferred to a new
+inner sibling. Splitting a high-fanout node can dirty/read hundreds of
+child pages even though their keys did not change. The stack/path scheme
+retains O(height) page numbers and revisits the parent, scanning its
+entries to find siblings, but avoids these child-page writes. For this
+buffered insertion/deletion design I prefer the path scheme; parent
+pointers may help upward navigation but are not free I/O optimization.
+
 A6.  It should be obvious how indexes can be used to enforce primary keys,
      but what role might they play with foreign keys?  For example, given
      this schema:
@@ -66,6 +97,13 @@ A6.  It should be obvious how indexes can be used to enforce primary keys,
      );
 
      Why might we want to build an index on t2.id?
+
+Answer A6: An index on referencing t2.id locates all dependent rows
+when t1.id is deleted or changed, allowing RESTRICT checks or CASCADE
+actions without scanning all of t2. Cost becomes an index descent plus
+the matching range rather than O(|t2|). It does not itself enforce the
+foreign key; event/constraint logic must still probe and apply the policy,
+and t2 writes must maintain this additional index.
 
 A7.  Over time, a B+ tree's pages, its leaf pages in particular, may become
      severely out of order, causing a significant number of seeks as the
@@ -88,6 +126,10 @@ A8.  Consider a variation of the approach in A7:  Instead of making one pass
      second pass, the 2nd, 4th, 6th, 8th, ... tuples are added to the new file.
      On average, how full will the leaf pages in the newly generated file be?
      Explain your answer.
+
+A7/A8 status: pending analysis of this implementation's sibling relocation
+policy. Do not infer textbook split-only occupancy percentages without
+accounting for tryLeafRelocateForSpace; no measured occupancy is claimed.
 
 D:  Extra Credit [OPTIONAL]
 ---------------------------
