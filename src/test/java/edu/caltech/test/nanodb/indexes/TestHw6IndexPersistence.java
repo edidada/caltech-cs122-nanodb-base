@@ -66,6 +66,12 @@ public class TestHw6IndexPersistence {
             sql(database,"CREATE INDEX by_k ON indexed_persist(k);");
             for(int id=0;id<400;id++)sql(database,"INSERT INTO indexed_persist VALUES ("+id+","+(id%5)+");");
             verify(database,400);
+            sql(database,"UPDATE indexed_persist SET id=id+1000,k=k+10 WHERE id>=350;");
+            verify(database,400);
+            CommandResult oldKeys=database.doCommand("SELECT id FROM indexed_persist WHERE id>=350 AND id<400;",true);
+            Assert.assertFalse(oldKeys.failed());Assert.assertEquals(oldKeys.getTuples().size(),0);
+            CommandResult newKeys=database.doCommand("SELECT id FROM indexed_persist WHERE id>=1350 AND k>=10;",true);
+            Assert.assertFalse(newKeys.failed());Assert.assertEquals(newKeys.getTuples().size(),50);
             sql(database,"DELETE FROM indexed_persist WHERE id<125;");
             verify(database,275);
         }
