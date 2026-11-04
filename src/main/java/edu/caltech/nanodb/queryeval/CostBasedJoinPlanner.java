@@ -57,7 +57,7 @@ public class CostBasedJoinPlanner extends AbstractPlannerImpl {
     /** Build a leaf; WHERE may cross only the preserved side of an outer join,
      * whereas ON-only restrictions may filter its null-supplying input. */
     private PlanNode makeLeafPlan(FromClause from,Collection<Expression> restrictions) {
-        if(!from.isOuterJoin() || from.getComputedSelectValues()!=null || from.isRenamed()) {
+        if(!from.isJoinExpr() || !from.isOuterJoin() || from.getComputedSelectValues()!=null || from.isRenamed()) {
             PlanNode plan=from(from);plan.prepare();return filter(plan,restrictions);
         }
         boolean leftOuter=from.getJoinType()==JoinType.LEFT_OUTER;
