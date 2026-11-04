@@ -83,17 +83,18 @@ public class TestHw4Optimizer extends SqlTestCase {
         equivalent("SELECT * FROM deriveda a LEFT JOIN derivedb b USING(k) WHERE k=2");
     }
 
-    /** Separate merged keys have the same name but distinct output positions. */
+    /** Opaque USING leaves retain their public positions after reordering. */
     public void testIndependentUsingJoinOutputPositions() throws Exception {
         for(int i=0;i<4;i++) {
-            tryDoCommand("CREATE TABLE merged"+i+" (k INTEGER, v"+i+" INTEGER);");
+            String column=i<2?"k":"q";
+            tryDoCommand("CREATE TABLE merged"+i+" ("+column+" INTEGER, v"+i+" INTEGER);");
             int key=i<2?7:19;
             for(int row=0;row<(i<2?3:1);row++)
                 tryDoCommand("INSERT INTO merged"+i+" VALUES ("+key+","+(i*100+row)+");");
             tryDoCommand("ANALYZE merged"+i+";");
         }
-        equivalent("SELECT * FROM (merged0 JOIN merged1 USING(k)) CROSS JOIN (merged2 JOIN merged3 USING(k))");
-        equivalent("SELECT * FROM (merged2 JOIN merged3 USING(k)) CROSS JOIN (merged0 JOIN merged1 USING(k))");
+        equivalent("SELECT * FROM (merged0 JOIN merged1 USING(k)) CROSS JOIN (merged2 JOIN merged3 USING(q))");
+        equivalent("SELECT * FROM (merged2 JOIN merged3 USING(q)) CROSS JOIN (merged0 JOIN merged1 USING(k))");
     }
 
     /** An independent scalar oracle enumerates all 24 four-table orders.

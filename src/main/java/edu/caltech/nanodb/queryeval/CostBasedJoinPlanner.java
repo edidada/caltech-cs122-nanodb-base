@@ -75,8 +75,8 @@ public class CostBasedJoinPlanner extends AbstractPlannerImpl {
         plan.prepare();Set<Expression> above=new LinkedHashSet<>(restrictions);above.removeAll(pushed);
         return filter(plan,above);
     }
-    /** Restore output positions by leaf identity, not by potentially ambiguous
-     * names (independent USING joins can both expose an unqualified key). */
+    /** Restore output positions directly from leaf identity and column offsets.
+     * Opaque USING/NATURAL leaves retain their own public column order. */
     private PlanNode restore(PlanNode plan,Schema expected,List<FromClause> original,
                              List<FromClause> sorted,String order) {
         Map<FromClause,Integer> offsets=new IdentityHashMap<>();int offset=0;
