@@ -129,7 +129,7 @@ public class TestHw4Optimizer extends SqlTestCase {
         }
         // Every table has exactly three non-NULL distinct keys. The three
         // predicates form a chain; an edge becomes available when both of
-        // its endpoints have been joined. CPU = L.cpu + L.rows*R.cpu + pairs.
+        // its endpoints have been joined. HW5 CPU = L.cpu + L.rows*R.cpu + pairs*(1 + expression nodes).
         double best=Double.POSITIVE_INFINITY;
         int permutations=0;
         for(int a=0;a<4;a++)for(int b=0;b<4;b++)for(int c=0;c<4;c++)for(int d=0;d<4;d++) {
@@ -141,7 +141,8 @@ public class TestHw4Optimizer extends SqlTestCase {
                 if(next>0 && seen[next-1])edges++;
                 if(next<3 && seen[next+1])edges++;
                 double pairs=rows*counts[next];
-                cpu+=rows*counts[next]+pairs;
+                int nodes=edges==0?0:edges==1?3:1+3*edges;
+                cpu+=rows*counts[next]+pairs*(1+nodes);
                 rows=pairs/Math.pow(3,edges);seen[next]=true;
             }
             best=Math.min(best,cpu);permutations++;

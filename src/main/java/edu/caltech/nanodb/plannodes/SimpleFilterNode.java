@@ -116,6 +116,10 @@ public class SimpleFilterNode extends SelectNode {
             SelectivityEstimator.estimateSelectivity(predicate, schema, childStats);
         cost = new PlanCost(child.numTuples * selectivity, child.tupleSize,
             child.cpuCost + child.numTuples, child.numBlockIOs, child.numLargeSeeks);
+        edu.caltech.nanodb.queryeval.ExpressionCostCalculator expressions =
+            new edu.caltech.nanodb.queryeval.ExpressionCostCalculator();
+        expressions.add(predicate);
+        expressions.addTo(cost,child.numTuples);
         stats = edu.caltech.nanodb.queryeval.StatisticsUpdater.updateStats(predicate, schema, childStats);
     }
 

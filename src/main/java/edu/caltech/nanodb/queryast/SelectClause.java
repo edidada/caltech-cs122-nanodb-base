@@ -437,7 +437,7 @@ public class SelectClause {
             }
 
             // Update the result-schema with this select-value's column-info(s).
-            resultColumnInfos.addAll(selVal.getColumnInfos(fromSchema, resultSchema));
+            resultColumnInfos.addAll(selVal.getColumnInfos(selVal.isWildcard()?fromSchema:getExpressionSchema(), resultSchema));
         }
 
         // Construct a resultSchema which is the "summation" of all
@@ -491,6 +491,20 @@ public class SelectClause {
 
         // All done!  Return the computed schema.
         return resultSchema;
+    }
+
+
+    /** Type-inference schema includes resolved outer references without exposing
+     * them through SELECT * or changing the local FROM schema. */
+    public Schema getExpressionSchema() {
+        Schema result=new Schema(fromSchema);
+        for(java.util.Map.Entry<ColumnName,SelectClause> reference:correlatedWith.entrySet()) {
+            if(result.getColumnIndex(reference.getKey())<0) {
+                Schema outer=reference.getValue().getFromSchema();
+                result.addColumnInfo(outer.getColumnInfo(outer.getColumnIndex(reference.getKey())));
+            }
+        }
+        return result;
     }
 
 

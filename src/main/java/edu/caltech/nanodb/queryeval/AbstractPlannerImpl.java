@@ -153,7 +153,7 @@ public abstract class AbstractPlannerImpl extends SimplestPlanner {
             rewritten = rewritten.traverse(new GroupReferences(groups));
             String alias = value.getAlias();
             if (alias == null && !(original instanceof ColumnValue))
-                alias = original.getColumnInfo(select.getFromSchema()).getName();
+                alias = original.getColumnInfo(select.getExpressionSchema()).getName();
             values.add(new SelectValue(rewritten, alias));
         }
         Expression having = select.getHavingExpr() == null ? null :

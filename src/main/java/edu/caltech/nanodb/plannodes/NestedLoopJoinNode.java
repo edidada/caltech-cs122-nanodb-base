@@ -190,6 +190,10 @@ public class NestedLoopJoinNode extends ThetaJoinNode {
             left.cpuCost + left.numTuples * right.cpuCost + pairs,
             left.numBlockIOs + (left.numTuples > 0 ? right.numBlockIOs : 0),
             left.numLargeSeeks + (left.numTuples > 0 ? right.numLargeSeeks : 0));
+        edu.caltech.nanodb.queryeval.ExpressionCostCalculator expressions =
+            new edu.caltech.nanodb.queryeval.ExpressionCostCalculator();
+        expressions.add(predicate);
+        expressions.addTo(cost,pairs);
         // Copy columns so costing a parent never mutates table statistics.
         ArrayList<ColumnStats> copied = new ArrayList<>();
         for (ColumnStats column : stats) copied.add(new ColumnStats(column));

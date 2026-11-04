@@ -40,7 +40,9 @@ Current implementation (unverified): SubqueryOperator attaches one private
 bridge to all nodes of its plan. Before each invocation it replaces the bridge's
 parent with the current operator environment; nested invocation chains preserve
 lexical lookup with local names taking precedence. External-column metadata is
-preserved for projection; costs and remaining validation are still incomplete.
+preserved for projection. ExpressionCostCalculator now accumulates one CPU unit per node
+and prepared subquery CPU/I/O/seeks, charged by the input row count (or join
+pairs) in physical nodes. All execution validation is still pending.
 
 D:  Extra Credit [OPTIONAL]
 ---------------------------

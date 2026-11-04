@@ -171,7 +171,15 @@ public class ProjectNode extends PlanNode {
             // Number of block IOs:  0
             // Number of large seeks:  0
             inputCost = new PlanCost(1, /* TODO:  tupleSize */ 100, 1, 0, 0);
-            cost = inputCost;
+            cost = new PlanCost(inputCost);
+        }
+
+        if(cost!=null) {
+            edu.caltech.nanodb.queryeval.ExpressionCostCalculator expressions =
+                new edu.caltech.nanodb.queryeval.ExpressionCostCalculator();
+            for(SelectValue value:projectionSpec)
+                if(!value.isWildcard())expressions.add(value.getExpression());
+            expressions.addTo(cost,inputCost.numTuples);
         }
 
         // TODO:  Estimate the final tuple-size.  It isn't hard, just tedious.

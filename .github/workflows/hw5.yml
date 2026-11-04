@@ -26,7 +26,7 @@ jobs:
       - name: Gradle framework, parser, HW1 through HW5
         run: gradle --no-daemon -PtestGroups=framework,parser,hw1,hw2,hw3,hw4,hw5 test
       - name: Official stores-28K optimizer and query-order experiments
-        run: python scripts/hw4_experiments.py
+        run: python scripts/hw4_experiments.py --updated-expression-costs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

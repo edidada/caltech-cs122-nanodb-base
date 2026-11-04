@@ -3,6 +3,10 @@ package edu.caltech.test.nanodb.sql;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 import edu.caltech.nanodb.expressions.TupleLiteral;
+import edu.caltech.nanodb.commands.SelectCommand;
+import edu.caltech.nanodb.queryast.SelectClause;
+import edu.caltech.nanodb.queryeval.*;
+import edu.caltech.nanodb.plannodes.PlanNode;
 import edu.caltech.nanodb.server.CommandResult;
 
 /** End-to-end subquery contracts; these cases require the actual SQL planner. */
@@ -49,4 +53,24 @@ public class TestHw5Planning extends SqlTestCase {
         expected("SELECT a.k FROM scopea a WHERE EXISTS (SELECT a.k FROM scopeb a WHERE a.k=2)",
             new TupleLiteral(1),new TupleLiteral(2),new TupleLiteral(3));
     }
+    public void testOuterProjectionTypingAndSameModelOptimizerCost() throws Exception {
+        setup("typed");
+        expected("SELECT a.k,(SELECT a.k+1) AS next FROM typeda a",
+            new TupleLiteral(1,2),new TupleLiteral(2,3),new TupleLiteral(3,4));
+        String sql="SELECT a.k FROM typeda a,typedb b WHERE a.k=b.k AND b.v=4 AND EXISTS "+
+            "(SELECT c.k FROM typedb c WHERE c.k=a.k)";
+        expected(sql,new TupleLiteral(1));
+        SelectClause ast=((SelectCommand)server.parseCommand(sql)).getSelectClause();
+        ast.computeSchema(server.getStorageManager().getTableManager(),null);
+        String before=ast.toString();
+        Planner simple=new SimplePlanner(),optimized=new CostBasedJoinPlanner();
+        simple.setStorageManager(server.getStorageManager());optimized.setStorageManager(server.getStorageManager());
+        PlanNode baseline=simple.makePlan(ast,null),best=optimized.makePlan(ast,null);
+        Assert.assertTrue(best.getCost().cpuCost<baseline.getCost().cpuCost);
+        Assert.assertEquals(ast.toString(),before,"Planning must preserve the parsed query");
+        PlanNode again=optimized.makePlan(ast,null);
+        Assert.assertNotSame(again,best);
+        Assert.assertEquals(again.getCost().cpuCost,best.getCost().cpuCost,.001f);
+    }
+
 }

@@ -72,14 +72,14 @@ public class TestHw3Analysis extends SqlTestCase {
         PlanCost scan=plan("SELECT * FROM costing").getCost();
         Assert.assertEquals(scan.numTuples,101f);Assert.assertEquals(scan.cpuCost,101f);
         PlanCost filtered=plan("SELECT * FROM costing WHERE a>=20").getCost();
-        Assert.assertEquals(filtered.numTuples,80.8f,.001f);Assert.assertEquals(filtered.cpuCost,101f);
+        Assert.assertEquals(filtered.numTuples,80.8f,.001f);Assert.assertEquals(filtered.cpuCost,404f); // HW5 adds three predicate nodes per input row.
         PlanCost nested=plan("SELECT * FROM (SELECT * FROM costing WHERE a>=20) x WHERE a<=80").getCost();
         Assert.assertEquals(nested.numTuples,60.6f,.01f);
         Assert.assertTrue(nested.cpuCost>filtered.cpuCost);
         Assert.assertEquals(file("costing").getStats().getColumnStats(0).getMinValue(),0);
         PlanCost join=plan("SELECT * FROM costing l JOIN costing r ON l.a=r.a").getCost();
         Assert.assertEquals(join.numTuples,101f,.01f);
-        Assert.assertEquals(join.cpuCost,101+101*101+101*101,.1f);
+        Assert.assertEquals(join.cpuCost,101+101*101+4*101*101,.1f);
         Assert.assertEquals(join.numBlockIOs,2L);
         PlanCost natural=plan("SELECT * FROM costing l NATURAL JOIN costing r").getCost();
         Assert.assertEquals(natural.numTuples,101f,.01f);

@@ -229,6 +229,10 @@ public class FileScanNode extends SelectNode {
             predicate, schema, tableStats.getAllColumnStats());
         cost = new PlanCost(tableStats.numTuples * selectivity, tableStats.avgTupleSize,
             tableStats.numTuples, tableStats.numDataPages, tableStats.numDataPages == 0 ? 0 : 1);
+        edu.caltech.nanodb.queryeval.ExpressionCostCalculator expressions =
+            new edu.caltech.nanodb.queryeval.ExpressionCostCalculator();
+        expressions.add(predicate);
+        expressions.addTo(cost,tableStats.numTuples);
         stats = edu.caltech.nanodb.queryeval.StatisticsUpdater.updateStats(
             predicate, schema, tableStats.getAllColumnStats());
     }

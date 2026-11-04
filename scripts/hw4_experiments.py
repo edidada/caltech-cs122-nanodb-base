@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import os
 import subprocess
+import sys
 
 root=Path.cwd()
 out=root/'target/hw4-experiments'
@@ -45,5 +46,8 @@ baseline=json.loads((root/'reports/hw3-results.json').read_text())
 old={q['name']:q for q in baseline['queries']}
 for name in old:
     assert queries[name]['resultSha256']==old[name]['resultSha256'],name
-assert queries['oregon_original']['cpuCost']<old['oregon_original']['cpuCost']
+if '--updated-expression-costs' not in sys.argv:
+    assert queries['oregon_original']['cpuCost']<old['oregon_original']['cpuCost']
+# HW5 uses a different cost unit: retain historical result hashes, but compare
+# optimizer costs only against a syntax-order plan using that same model in tests.
 print(json.dumps(data,indent=2))
