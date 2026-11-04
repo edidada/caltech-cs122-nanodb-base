@@ -15,3 +15,5 @@ forceWAL第一阶段实现（未验证）：用记录偏移+recordSize计算排�
 显式ROLLBACK事务链实现（未执行）：检查记录事务ID与类型，START终止，UPDATE读取前一LSN及页面修改前字节、恢复页面并生成redo-only补偿记录；补偿链接指向undo-next，更新会话lastLSN、pageLSN和页面旧镜像，再沿原previous继续。redo-only直接沿链跳过，拒绝不后退的链或非预期记录。最后写ABORT。编号回绕尚未支持；启动恢复performRedo/performUndo仍未实现，不能把显式回滚实现当作崩溃恢复完成。
 
 启动redo扫描实现（未执行）：识别START/COMMIT/ABORT/UPDATE/redo-only，累计事务最大ID和未完成事务；重放UPDATE/补偿数据到页面、更新pageLSN和旧镜像，校验尾部起始偏移与类型字节，推进排他下一LSN，完成事务从集合移除。重放采取重复写入绝对字节方式，不跳过可能缺少持久pageLSN的页。恢复undo仍占位，异常关闭reader及日志截断防护仍需补强；该阶段不构成恢复验收。
+
+恢复undo第一阶段实现（未执行）：保留物理日志逆序扫描，并为每个未提交事务单独维护undoNext游标；只处理游标命中的记录，redo-only沿其链接跳过已补偿的原始更新，UPDATE恢复旧字节并写补偿，START写ABORT并移除未完成事务。恢复范围耗尽但仍有未完成事务时明确报错，不把部分回滚当成功。reader正常结束关闭，异常finally仍需统一补齐。尚无崩溃重复恢复证据。

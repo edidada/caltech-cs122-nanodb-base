@@ -388,6 +388,8 @@ public class WALManager {
         LogSequenceNumber currLSN = recoveryInfo.nextLSN;
         logger.debug("Starting undo processing at " + currLSN);
 
+        java.util.Map<Integer,LogSequenceNumber> undoNext =
+            new java.util.HashMap<>(recoveryInfo.incompleteTxns);
         DBFileReader walReader = null;
         while (recoveryInfo.hasIncompleteTxns()) {
             // Compute LSN of previous WAL record.  Start by getting the last
@@ -503,31 +505,43 @@ public class WALManager {
                 "Undo:  examining WAL record at %s.  Type = %s, TxnID = %d",
                 currLSN, type, transactionID));
 
-            // TODO:  IMPLEMENT THE REST
-            //
-            //        Use logging statements liberally to help verify and
-            //        debug your work.
-            //
-            //        If you encounter invalid WAL contents, throw a
-            //        WALFileException to indicate the problem immediately.
-            //
-            //        You can use Java enums in a switch statement, like this:
-            //
-            //            switch (type) {
-            //            case START_TXN:
-            //                ...
-            //
-            //            case COMMIT_TXN:
-            //                ...
-            //
-            //            default:
-            //                throw new WALFileException(
-            //                    "Encountered unrecognized WAL record type " +
-            //                    type + " at LSN " + currLSN +
-            //                    " during undo processing!");
-            //            }
+            // Physical traversal still sees already compensated originals.
+            // Only the transaction's current undo-next record may be undone.
+            if (!currLSN.equals(undoNext.get(transactionID))) continue;
+            switch (type) {
+            case START_TXN:
+                writeTxnRecord(WALRecordType.ABORT_TXN,transactionID,recoveryInfo.getLastLSN(transactionID));
+                recoveryInfo.recordTxnCompleted(transactionID);undoNext.remove(transactionID);
+                break;
+            case UPDATE_PAGE:
+            case UPDATE_PAGE_REDO_ONLY:
+                LogSequenceNumber previous = new LogSequenceNumber(walReader.readUnsignedShort(),walReader.readInt());
+                if (previous.compareTo(currLSN) >= 0)
+                    throw new WALFileException("Non-decreasing undo chain at " + currLSN);
+                undoNext.put(transactionID,previous);
+                if (type == WALRecordType.UPDATE_PAGE_REDO_ONLY) break;
+                String filename = walReader.readVarString255();
+                int pageNo = walReader.readUnsignedShort();
+                int segments = walReader.readUnsignedShort();
+                DBFile file = storageManager.openDBFile(filename);
+                if (file == null) throw new WALFileException("Missing undo data file " + filename);
+                DBPage page = storageManager.loadDBPage(file,pageNo,true);
+                try {
+                    byte[] changes = applyUndoAndGenRedoOnlyData(walReader,page,segments);
+                    LogSequenceNumber compensation = writeRedoOnlyUpdatePageRecord(
+                        transactionID,previous,page,segments,changes);
+                    recoveryInfo.updateInfo(transactionID,compensation);
+                }
+                finally {page.unpin();}
+                break;
+            default:
+                throw new WALFileException("Unexpected incomplete-transaction record " + type + " at " + currLSN);
+            }
         }
 
+        if (walReader != null) walReader.close();
+        if (recoveryInfo.hasIncompleteTxns())
+            throw new WALFileException("Recovery range ended before all incomplete transactions reached START");
         logger.debug("Undo processing is complete.");
     }
 
