@@ -6,10 +6,10 @@
 
 | 官方要求 | 当前实现 / 缺项 | 验收状态 |
 | --- | --- | --- |
-| ExpressionPlanner 实现 ExpressionProcessor，复用当前 Planner，完整 Javadoc | 尚未实现 | 未完成 |
-| SELECT、WHERE、HAVING 内嵌子查询规划 | 现有公共规划器仍拒绝标量子查询；待接入 | 未完成 |
-| GROUP BY、ORDER BY 子查询明确拒绝，检测不污染其他子句 | 待实现独立遍历及回归用例 | 未完成 |
-| 相关求值及环境层级连接 | Environment 和 PlanNode 已有接口，尚未接入 | 未完成 |
+| ExpressionPlanner 实现 ExpressionProcessor，复用当前 Planner，完整 Javadoc | 已新增递归遍历，复用当前 Planner，含字段/方法 Javadoc | 待运行 |
+| SELECT、WHERE、HAVING 内嵌子查询规划 | 已接入共享规划器私有表达式副本及成本规划器合取项 | 待运行 |
+| GROUP BY、ORDER BY 子查询明确拒绝，检测不污染其他子句 | 已实现无共享状态的子句拒绝遍历；拒绝用例尚待补齐 | 待运行 |
+| 相关求值及环境层级连接 | 已接入动态外层环境桥接及相关列类型元数据 | 待运行 |
 | 子查询表达式成本及相关计划节点更新 | 尚未实现 | 未完成 |
 | 设计题、原有 SQL 测试及历史实验回归 | hw5.yml 已准备 JDK17 Maven/Gradle，包含 framework/parser/HW1～HW5 及 HW4 完整数据实验；尚未执行 | 未验收 |
 
@@ -28,3 +28,13 @@ IN 的 equals/hashCode 现在区分 IN 和 NOT IN；duplicate 深复制每个左
 仅完成源码检查和 `git diff --check`，没有在本地编译或执行测试。新增工作流发布仍需已有登录的 workflow 权限，最新 langnote Actions 41849415306 又在分配 runner 前被账户付款/额度限制拒绝。未修改付费设置、未使用付费执行资源，未以旧实验 CI 替代本分支验证。
 
 后续必须完成表中全部必需项，补全设计题，发布后读取实际失败日志并修复，直到最终 SHA 的 Maven、Gradle、SQL 集成、相关查询与成本实验均有真实结果。装饰性附加优化、去相关和物化缓存属于可选扩展，未实现，不计入完成情况。
+
+## 子查询规划接入（尚未执行）
+
+新增 ExpressionPlanner：遍历私有表达式，遇到 SubqueryOperator 时调用当前 Planner.makePlan 递归生成计划，子查询块本身不混入当前表达式遍历。共享规划器保存当前词法 SELECT，并在递归返回时用 finally 恢复；SELECT/HAVING 在聚合提取前规划，WHERE 在构造扫描/过滤条件时规划。成本规划器同样为每个私有合取项规划子查询。GROUP BY、ORDER BY 使用独立无状态遍历拒绝，JOIN ON 也明确拒绝内嵌子查询（官方允许的可选限制）。
+
+每个已规划子查询新增独立外层环境桥，桥挂到子计划所有物理节点。每次 Scalar/IN/EXISTS 求值前将桥的单一父环境替换成当前表达式所在节点的环境，不累计历次调用、不复用过期行；更深层子查询通过同一链条追溯祖父环境。相关列使用词法外层 schema 的类型，投影统计无法在当前输入找到位置时使用未知统计，不把 -1 当列下标。Expression.SymbolFinder 在只查询“是否有符号”时避免向 null 集合加入相关列。
+
+新增 TestHw5Planning 三组 SQL 集成用例：无 FROM 标量聚合、WHERE 与 HAVING 非相关子查询；逐行相关 MAX、EXISTS/NOT EXISTS、IN/NOT IN；祖父层引用和内层别名遮蔽。均未执行，也未据此声称通过。现有 AST schema 计算阶段对直接投影外层列的支持还需核查，类型桥的规划阶段实现不能替代该阶段的证明；更复杂分组相关性仍需扩展覆盖。
+
+表达式成本累计和计划节点成本更新仍未实现，拒绝子句与重复规划独立性用例尚待补齐。最终验收仍必须满足本报告完整范围，不以这次规划接入缩小 HW5 要求。

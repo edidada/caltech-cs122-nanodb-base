@@ -18,7 +18,16 @@ import edu.caltech.nanodb.relations.ColumnInfo;
  * The AST is read-only: rewritten SELECT/HAVING expressions are private copies,
  * permitting the same parsed query to be planned and evaluated again. */
 public abstract class AbstractPlannerImpl extends SimplestPlanner {
+    /** Lexical scope restored after each recursive makePlan invocation. */
+    private SelectClause planningSelect;
+
+    /** Plan private expression copies; callers retain ownership of the AST. */
+    protected final Expression prepareExpression(Expression expression) {
+        return expression==null?null:expression.duplicate().traverse(new ExpressionPlanner(this,planningSelect));
+    }
+
     protected final void rejectAggregates(Expression expression, String clause) {
+        if ("ON".equals(clause)) ExpressionPlanner.rejectSubqueries(expression,"JOIN ON");
         if (expression != null)
             expression.duplicate().traverse(new AggregateProcessor(false, clause));
     }
@@ -44,7 +53,7 @@ public abstract class AbstractPlannerImpl extends SimplestPlanner {
                 plan = mergedJoin(from, left, right);
             else
                 plan = new NestedLoopJoinNode(left, right, type,
-                    predicate == null ? null : predicate.duplicate());
+                    prepareExpression(predicate));
         }
         else {
             throw new InvalidSQLException("Unsupported FROM clause: " + from);
@@ -118,25 +127,29 @@ public abstract class AbstractPlannerImpl extends SimplestPlanner {
 
     @Override
     public PlanNode makePlan(SelectClause select, List<SelectClause> enclosing) {
-        if (enclosing != null && !enclosing.isEmpty())
-            throw new InvalidSQLException("Correlated evaluation is outside HW2");
+        SelectClause previous=planningSelect;planningSelect=select;
+        try {return makeSelectPlan(select);}
+        finally {planningSelect=previous;}
+    }
+
+    /** Construct this query block while recursive expression planning restores scope. */
+    private PlanNode makeSelectPlan(SelectClause select) {
         rejectAggregates(select.getWhereExpr(), "WHERE");
         List<Expression> groups = new ArrayList<>();
         for (Expression group : select.getGroupByExprs()) {
+            ExpressionPlanner.rejectSubqueries(group,"GROUP BY");
             rejectAggregates(group, "GROUP BY");
             groups.add(group.duplicate());
         }
         AggregateProcessor processor = new AggregateProcessor(true, "SELECT/HAVING");
         List<SelectValue> values = new ArrayList<>();
         for (SelectValue value : select.getSelectValues()) {
-            if (value.isScalarSubquery())
-                throw new InvalidSQLException("Scalar subqueries are outside HW2");
             if (value.isWildcard()) {
                 values.add(new SelectValue(value.getExpression().duplicate()));
                 continue;
             }
             Expression original = value.getExpression();
-            Expression rewritten = original.duplicate().traverse(processor);
+            Expression rewritten = prepareExpression(original).traverse(processor);
             rewritten = rewritten.traverse(new GroupReferences(groups));
             String alias = value.getAlias();
             if (alias == null && !(original instanceof ColumnValue))
@@ -144,7 +157,7 @@ public abstract class AbstractPlannerImpl extends SimplestPlanner {
             values.add(new SelectValue(rewritten, alias));
         }
         Expression having = select.getHavingExpr() == null ? null :
-            select.getHavingExpr().duplicate().traverse(processor)
+            prepareExpression(select.getHavingExpr()).traverse(processor)
                 .traverse(new GroupReferences(groups));
         // A no-FROM query starts with one empty row, not zero rows. This also
         // makes WHERE and COUNT(*) work on constant-only SELECT statements.
@@ -155,6 +168,8 @@ public abstract class AbstractPlannerImpl extends SimplestPlanner {
         if (!select.isTrivialProject()) plan = new ProjectNode(plan, values);
         if (select.isDistinct())
             throw new InvalidSQLException("SELECT DISTINCT is outside the HW2 planner");
+        for(edu.caltech.nanodb.expressions.OrderByExpression order:select.getOrderByExprs())
+            ExpressionPlanner.rejectSubqueries(order.getExpression(),"ORDER BY");
         if (!select.getOrderByExprs().isEmpty()) plan = new SortNode(plan, select.getOrderByExprs());
         if (select.getLimit() > 0 || select.getOffset() > 0)
             plan = new LimitOffsetNode(plan, select.getLimit(), select.getOffset());
@@ -167,7 +182,7 @@ public abstract class AbstractPlannerImpl extends SimplestPlanner {
         PlanNode plan = select.getFromClause() == null ?
             new ProjectNode(Collections.emptyList()) : from(select.getFromClause());
         if (select.getWhereExpr() != null)
-            plan = PlanUtils.addPredicateToPlan(plan, select.getWhereExpr().duplicate());
+            plan = PlanUtils.addPredicateToPlan(plan, prepareExpression(select.getWhereExpr()));
         return plan;
     }
 

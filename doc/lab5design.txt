@@ -7,12 +7,27 @@ A:  Subquery Planning
 A1.  Which planner did your team add subquery planning to?  How easy or
      difficult was it to incorporate subquery-planning into the planner?
 
+Current implementation (unverified): Shared AbstractPlannerImpl hosts expression
+planning, inherited by SimplePlanner and CostBasedJoinPlanner. The same planner
+instance recursively plans nested query blocks; a finally block restores lexical
+scope after each recursive invocation. Integration tests have not run.
+
 A2.  Briefly outline the process by which you perform subquery planning in
      your query planner.  Also explain briefly how your subquery-planner works.
+
+Current implementation (unverified): ExpressionPlanner traverses private
+expression copies, plans each immediately nested SubqueryOperator, and preserves
+outer-column type metadata. SELECT/HAVING processing precedes aggregate
+extraction. WHERE conjunct copies are planned before physical plan preparation.
+Every subplan uses an environment bridge rebound to the invoking evaluator.
 
 A3.  Briefly describe how you detect whether there are subqueries in the
      GROUP BY and ORDER BY clauses.  How do you make sure this doesn't
      interfere with subqueries in other clauses?
+
+Current implementation (unverified): rejectSubqueries uses a fresh stateless
+traversal per GROUP BY or ORDER BY expression, so flags cannot leak into other
+clauses. JOIN ON subqueries are explicitly unsupported as allowed by the task.
 
 B:  Correlated Evaluation
 -------------------------
@@ -20,6 +35,12 @@ B:  Correlated Evaluation
 B1.  How easy or difficult was it to incorporate support for correlated
      evaluation into your query planner?  Did it affect the sequence of
      steps in any substantial ways?
+
+Current implementation (unverified): SubqueryOperator attaches one private
+bridge to all nodes of its plan. Before each invocation it replaces the bridge's
+parent with the current operator environment; nested invocation chains preserve
+lexical lookup with local names taking precedence. External-column metadata is
+preserved for projection; costs and remaining validation are still incomplete.
 
 D:  Extra Credit [OPTIONAL]
 ---------------------------

@@ -80,6 +80,7 @@ public class InSubqueryOperator extends SubqueryOperator {
             throw new IllegalStateException("No execution plan for subquery");
         List<Object> values = new ArrayList<>();
         for (Expression expr : exprList) values.add(expr.evaluate(env));
+        bindOuterContext(env);
         subqueryPlan.initialize();
         boolean unknown = false;
         try {

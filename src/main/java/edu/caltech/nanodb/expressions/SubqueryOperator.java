@@ -44,6 +44,9 @@ public abstract class SubqueryOperator extends Expression {
      */
     protected PlanNode subqueryPlan;
 
+    /** Indirection from the subplan to the currently evaluating outer node. */
+    private Environment outerContext;
+
 
     /**
      * Returns the parsed representation of the subquery that is used by this
@@ -64,6 +67,15 @@ public abstract class SubqueryOperator extends Expression {
      */
     public void setSubqueryPlan(PlanNode plan) {
         subqueryPlan = plan;
+        outerContext = new Environment();
+        if (plan != null) plan.addParentEnvironmentToPlanTree(outerContext);
+    }
+
+
+    /** Bind before each invocation so clones and successive outer rows resolve
+     * against the current evaluator rather than a stale tuple environment. */
+    protected final void bindOuterContext(Environment environment) {
+        if (outerContext != null) outerContext.setParentEnvironment(environment);
     }
 
 

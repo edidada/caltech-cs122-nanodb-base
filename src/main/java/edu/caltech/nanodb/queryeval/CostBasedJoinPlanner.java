@@ -28,7 +28,7 @@ public class CostBasedJoinPlanner extends AbstractPlannerImpl {
             BooleanOperator and=(BooleanOperator)expression;
             for(int i=0;i<and.getNumTerms();i++)collectTerms(and.getTerm(i),destination);
         }
-        else destination.add(expression.duplicate());
+        else destination.add(prepareExpression(expression));
     }
     /** Find expressions evaluable from available columns. */
     private Set<Expression> applicable(Collection<Expression> terms,Schema... schemas) {

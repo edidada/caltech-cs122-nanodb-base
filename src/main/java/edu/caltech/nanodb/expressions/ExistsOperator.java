@@ -44,6 +44,7 @@ public class ExistsOperator extends SubqueryOperator {
         if (subqueryPlan == null)
             throw new IllegalStateException("No execution plan for subquery");
 
+        bindOuterContext(env);
         subqueryPlan.initialize();
 
         Tuple tuple = null;

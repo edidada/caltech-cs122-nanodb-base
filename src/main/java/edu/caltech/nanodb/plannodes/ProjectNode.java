@@ -229,8 +229,8 @@ public class ProjectNode extends PlanNode {
                     // and the statistics from the input.
                     ColumnValue colValue = (ColumnValue) expr;
                     int colIndex = inputSchema.getColumnIndex(colValue.getColumnName());
-                    colInfo = inputSchema.getColumnInfo(colIndex);
-                    stats.add(inputStats.get(colIndex));
+                    colInfo = colIndex>=0 ? inputSchema.getColumnInfo(colIndex) : expr.getColumnInfo(inputSchema);
+                    stats.add(colIndex>=0 ? inputStats.get(colIndex) : new ColumnStats());
                 }
                 else if (expr instanceof edu.caltech.nanodb.expressions.BoundColumnValue) {
                     int index = ((edu.caltech.nanodb.expressions.BoundColumnValue) expr).getSchemaIndex();

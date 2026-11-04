@@ -81,6 +81,13 @@ public class Environment {
     }
 
 
+    /** Replace the dynamic outer context of a subquery invocation. */
+    public void setParentEnvironment(Environment env) {
+        parents.clear();
+        if (env != null) parents.add(env);
+    }
+
+
     /**
      * Adds a tuple to the environment with the given schema.
      *

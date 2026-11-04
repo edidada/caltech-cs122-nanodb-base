@@ -92,7 +92,7 @@ public abstract class Expression implements Cloneable {
                     // Pull out the symbol names that the subquery references
                     // in enclosing queries.
                     hasSymbols = true;
-                    symbols.addAll(subquery.getCorrelatedColumns());
+                    if (symbols != null) symbols.addAll(subquery.getCorrelatedColumns());
                 }
             }
         }

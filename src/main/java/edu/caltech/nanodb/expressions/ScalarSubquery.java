@@ -42,6 +42,7 @@ public class ScalarSubquery extends SubqueryOperator {
     public Object evaluate(Environment env) {
         if (subqueryPlan == null)
             throw new IllegalStateException("No execution plan for subquery");
+        bindOuterContext(env);
         subqueryPlan.initialize();
         Tuple first = null, second = null;
         try {
