@@ -714,11 +714,8 @@ public class LeafPageOperations {
      * a tuple to a leaf that doesn't have enough space, when it isn't
      * possible to relocate values to the left or right sibling of the leaf.
      *
-     * @todo (donnie) When the leaf node is split, half of the tuples are
-     *       put into the new leaf, regardless of the size of individual
-     *       tuples.  In other words, this method doesn't try to keep the
-     *       leaves half-full based on bytes used.  It would almost
-     *       certainly be better if it did.
+     * Splits are selected by encoded bytes, including the incoming tuple, so
+     * variable-width keys do not overflow a count-balanced destination.
      *
      * @param leaf the leaf node to split and then add the tuple to
      * @param pagePath the sequence of page-numbers traversed to reach this
@@ -747,16 +744,49 @@ public class LeafPageOperations {
         DBPage newDBPage = fileOps.getNewDataPage();
         LeafPage newLeaf = LeafPage.init(newDBPage, tupleFile.getSchema());
 
-        /* TODO:  IMPLEMENT THE REST OF THIS METHOD.
-         *
-         * The LeafPage class provides some helpful operations for moving leaf-
-         * entries to a left or right sibling.
-         *
-         * The parent page must also be updated.  If the leaf node doesn't have
-         * a parent, the tree's depth will increase by one level.
-         */
-        logger.error("NOT YET IMPLEMENTED:  splitLeafAndAddKey()");
-        return null;
+        int count = leaf.getNumTuples(), rank = 0;
+        int[] prefix = new int[count + 1];
+        for (int i = 0; i < count; i++) {
+            BTreeFilePageTuple existing = leaf.getTuple(i);
+            prefix[i + 1] = prefix[i] + existing.getSize();
+            int comparison = TupleComparator.compareTuples(existing,tuple);
+            if (comparison < 0) rank++;
+            if (comparison == 0) throw new IllegalArgumentException("Duplicate BTree tuple: " + tuple);
+        }
+        int keep = -1, bestDifference = Integer.MAX_VALUE;
+        boolean insertLeft = false;
+        // Enumerate every nonempty split of the sorted existing + new tuple.
+        // Balancing bytes avoids overflowing a count-balanced variable-width leaf.
+        for (int split = 1; split <= count; split++) {
+            boolean goesLeft = rank < split;
+            int existingLeft = split - (goesLeft ? 1 : 0);
+            int leftBytes = prefix[existingLeft] + (goesLeft ? tuple.getStorageSize() : 0);
+            int rightBytes = prefix[count] - prefix[existingLeft] + (goesLeft ? 0 : tuple.getStorageSize());
+            if (leftBytes > leaf.getTotalSpace() || rightBytes > newLeaf.getTotalSpace()) continue;
+            int difference = Math.abs(leftBytes - rightBytes);
+            if (difference < bestDifference) {
+                bestDifference = difference;keep = existingLeft;insertLeft = goesLeft;
+            }
+        }
+        if (keep < 0) throw new BTreeTupleFileException("Cannot split leaf to fit tuple: " + tuple);
+        newLeaf.setNextPageNo(leaf.getNextPageNo());
+        leaf.setNextPageNo(newLeaf.getPageNo());
+        if (count > keep) leaf.moveTuplesRight(newLeaf,count - keep);
+        BTreeFilePageTuple result = (insertLeft ? leaf : newLeaf).addTuple(tuple);
+        TupleLiteral separator = TupleLiteral.fromTuple(newLeaf.getTuple(0));
+        if (pathSize == 1) {
+            InnerPage root = InnerPage.init(fileOps.getNewDataPage(),tupleFile.getSchema(),
+                leaf.getPageNo(),separator,newLeaf.getPageNo());
+            DBPage header = storageManager.loadDBPage(tupleFile.getDBFile(),0);
+            HeaderPage.setRootPageNo(header,root.getPageNo());
+        }
+        else {
+            List<Integer> parentPath = new java.util.ArrayList<>(pagePath.subList(0,pathSize - 1));
+            DBPage parentDB = storageManager.loadDBPage(tupleFile.getDBFile(),parentPath.get(parentPath.size() - 1));
+            InnerPage parent = new InnerPage(parentDB,tupleFile.getSchema());
+            innerPageOps.addTuple(parent,parentPath,leaf.getPageNo(),separator,newLeaf.getPageNo());
+        }
+        return result;
     }
 
 

@@ -125,7 +125,9 @@ public class IndexUpdater implements RowEventListener {
             IndexInfo indexInfo = indexManager.openIndex(tblFileInfo,
                 indexDef.getIndexName());
 
-            // TODO:  Implement!
+            idxTup = IndexUtils.makeTableSearchKey(indexDef,ptup,true);
+            Tuple inserted = indexInfo.getTupleFile().addTuple(idxTup);
+            if (inserted != null) inserted.unpin();
         }
     }
 
@@ -147,7 +149,14 @@ public class IndexUpdater implements RowEventListener {
         // Iterate over the indexes in the table.
         Schema schema = tableInfo.getSchema();
         for (IndexColumnRefs indexDef : schema.getIndexes()) {
-            // TODO:  Implement!
+            IndexInfo indexInfo = indexManager.openIndex(tableInfo,indexDef.getIndexName());
+            TupleFile file = indexInfo.getTupleFile();
+            TupleLiteral key = IndexUtils.makeTableSearchKey(indexDef,ptup,true);
+            PageTuple stored = IndexUtils.findTupleInIndex(key,file);
+            if (stored == null)
+                throw new IllegalStateException("Missing index entry in " + indexDef.getIndexName() + " for " + key);
+            try {file.deleteTuple(stored);}
+            finally {stored.unpin();}
         }
     }
 }

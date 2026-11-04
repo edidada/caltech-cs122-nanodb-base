@@ -173,7 +173,10 @@ public class BTreeTupleFile implements SequentialTupleFile {
 
     @Override
     public List<OrderByExpression> getOrderSpec() {
-        throw new UnsupportedOperationException("NYI");
+        List<OrderByExpression> order = new ArrayList<>();
+        for (edu.caltech.nanodb.relations.ColumnInfo column : schema)
+            order.add(new OrderByExpression(new edu.caltech.nanodb.expressions.ColumnValue(column.getColumnName())));
+        return order;
     }
 
 
@@ -517,20 +520,29 @@ public class BTreeTupleFile implements SequentialTupleFile {
         if (pagePath != null)
             pagePath.add(rootPageNo);
 
-        /* TODO:  IMPLEMENT THE REST OF THIS METHOD.
-         *
-         * Don't forget to update the page-path as you navigate the index
-         * structure, if it is provided by the caller.
-         *
-         * Use the TupleComparator.comparePartialTuples() method for comparing
-         * the index's keys with the passed-in search key.
-         *
-         * It's always a good idea to code defensively:  if you see an invalid
-         * page-type, flag it with an IOException, as done earlier.
-         */
-        logger.error("NOT YET IMPLEMENTED:  navigateToLeafPage()");
-
-        return null;
+        java.util.Set<Integer> visited = new java.util.HashSet<>();
+        visited.add(rootPageNo);
+        while (pageType == BTREE_INNER_PAGE) {
+            InnerPage inner = new InnerPage(dbPage,schema);
+            if (inner.getNumPointers() == 0)
+                throw new BTreeTupleFileException("Inner page has no child pointers: " + dbPage.getPageNo());
+            int child = 0;
+            // Full keys equal to a separator belong to its right child.
+            // A shorter prefix sorts before equal full keys, so prefix lookup
+            // starts far enough left to find the first matching duplicate.
+            while (child < inner.getNumKeys() && TupleComparator.comparePartialTuples(
+                searchKey,inner.getKey(child),TupleComparator.CompareMode.SHORTER_IS_LESS) >= 0) child++;
+            int next = inner.getPointer(child);
+            if (next <= 0 || !visited.add(next))
+                throw new BTreeTupleFileException("Invalid or cyclic BTree child pointer: " + next);
+            DBPage nextPage = storageManager.loadDBPage(dbFile,next);
+            dbPage.unpin();dbPage = nextPage;
+            pageType = dbPage.readByte(0);
+            if (pageType != BTREE_INNER_PAGE && pageType != BTREE_LEAF_PAGE)
+                throw new BTreeTupleFileException("Invalid child page type: " + pageType);
+            if (pagePath != null) pagePath.add(next);
+        }
+        return new LeafPage(dbPage,schema);
     }
 
 
