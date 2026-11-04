@@ -74,5 +74,12 @@ public class TestHw3Analysis extends SqlTestCase {
         Assert.assertEquals(join.numTuples,101f,.01f);
         Assert.assertEquals(join.cpuCost,101+101*101+101*101,.1f);
         Assert.assertEquals(join.numBlockIOs,2L);
+        PlanCost natural=plan("SELECT * FROM costing l NATURAL JOIN costing r").getCost();
+        Assert.assertEquals(natural.numTuples,101f,.01f);
+        PlanCost right=plan("SELECT * FROM costing l RIGHT JOIN costing r USING(a)").getCost();
+        Assert.assertEquals(right.numTuples,101f,.01f);
+        PlanCost emptySort=plan("SELECT * FROM costing WHERE 1=0 ORDER BY a").getCost();
+        Assert.assertEquals(emptySort.numTuples,0f);
+        Assert.assertTrue(Float.isFinite(emptySort.cpuCost));
     }
 }

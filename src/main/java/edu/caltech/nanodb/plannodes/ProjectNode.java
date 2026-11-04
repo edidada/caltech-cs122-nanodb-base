@@ -232,6 +232,12 @@ public class ProjectNode extends PlanNode {
                     colInfo = inputSchema.getColumnInfo(colIndex);
                     stats.add(inputStats.get(colIndex));
                 }
+                else if (expr instanceof edu.caltech.nanodb.expressions.BoundColumnValue) {
+                    int index = ((edu.caltech.nanodb.expressions.BoundColumnValue) expr).getSchemaIndex();
+                    colInfo = expr.getColumnInfo(inputSchema);
+                    stats.add(index >= 0 && index < inputStats.size() ?
+                        new ColumnStats(inputStats.get(index)) : new ColumnStats());
+                }
                 else {
                     // This is a more complicated expression.  Guess the schema,
                     // and assume that every row will have a distinct value.

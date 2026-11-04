@@ -55,16 +55,16 @@ public final class SelectivityEstimator {
         CompareOperator comparison=(CompareOperator)original.duplicate();
         comparison.normalize();
         Expression left=comparison.getLeftExpression(), right=comparison.getRightExpression();
-        if (left instanceof ColumnValue && right instanceof LiteralValue) {
-            int index=schema.getColumnIndex(((ColumnValue)left).getColumnName());
+        if (index(left,schema)>=0 && right instanceof LiteralValue) {
+            int index=index(left,schema);
             if (index<0) return DEFAULT_SELECTIVITY;
             return columnValue(comparison.getType(),right.evaluate(),schema.getColumnInfo(index).getType().getBaseType(),stats.get(index));
         }
-        if (left instanceof ColumnValue && right instanceof ColumnValue) {
+        if (index(left,schema)>=0 && index(right,schema)>=0) {
             CompareOperator.Type type=comparison.getType();
             if (type!=CompareOperator.Type.EQUALS && type!=CompareOperator.Type.NOT_EQUALS) return DEFAULT_SELECTIVITY;
-            int a=schema.getColumnIndex(((ColumnValue)left).getColumnName());
-            int b=schema.getColumnIndex(((ColumnValue)right).getColumnName());
+            int a=index(left,schema);
+            int b=index(right,schema);
             if (a<0 || b<0) return DEFAULT_SELECTIVITY;
             int av=stats.get(a).getNumUniqueValues(), bv=stats.get(b).getNumUniqueValues();
             if (av<0 || bv<0) return DEFAULT_SELECTIVITY;
@@ -73,6 +73,14 @@ public final class SelectivityEstimator {
             return type==CompareOperator.Type.EQUALS ? equal : 1-equal;
         }
         return DEFAULT_SELECTIVITY;
+    }
+
+    private static int index(Expression expression,Schema schema) {
+        if (expression instanceof ColumnValue)
+            return schema.getColumnIndex(((ColumnValue)expression).getColumnName());
+        if (expression instanceof BoundColumnValue)
+            return ((BoundColumnValue)expression).getSchemaIndex();
+        return -1;
     }
 
     public static float columnValue(CompareOperator.Type type, Object value, SQLDataType sqlType, ColumnStats stats) {

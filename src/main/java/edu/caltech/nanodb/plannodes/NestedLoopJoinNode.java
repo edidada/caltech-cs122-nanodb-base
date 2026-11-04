@@ -188,7 +188,8 @@ public class NestedLoopJoinNode extends ThetaJoinNode {
         if (joinType == JoinType.LEFT_OUTER) rows = Math.max(left.numTuples, rows);
         cost = new PlanCost(rows, left.tupleSize + right.tupleSize,
             left.cpuCost + left.numTuples * right.cpuCost + pairs,
-            left.numBlockIOs + right.numBlockIOs, left.numLargeSeeks + right.numLargeSeeks);
+            left.numBlockIOs + (left.numTuples > 0 ? right.numBlockIOs : 0),
+            left.numLargeSeeks + (left.numTuples > 0 ? right.numLargeSeeks : 0));
         // Copy columns so costing a parent never mutates table statistics.
         ArrayList<ColumnStats> copied = new ArrayList<>();
         for (ColumnStats column : stats) copied.add(new ColumnStats(column));

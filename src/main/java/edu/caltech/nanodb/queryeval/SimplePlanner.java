@@ -66,8 +66,8 @@ public class SimplePlanner extends SimplestPlanner {
         for (String key : keys) {
             int li = ls.getColumnIndex(key), ri = rs.getColumnIndex(key);
             condition.addTerm(new CompareOperator(CompareOperator.Type.EQUALS,
-                new BoundColumnValue(reverse ? 1 : 0, li, ls.getColumnInfo(li)),
-                new BoundColumnValue(reverse ? 0 : 1, ri, rs.getColumnInfo(ri))));
+                new BoundColumnValue(reverse ? 1 : 0, li, ls.getColumnInfo(li), reverse ? rs.numColumns() + li : li),
+                new BoundColumnValue(reverse ? 0 : 1, ri, rs.getColumnInfo(ri), reverse ? ri : ls.numColumns() + ri)));
             projection.add(new SelectValue(new BoundColumnValue(0,
                 reverse ? ls.numColumns() + ri : li, output.getColumnInfo(column++))));
         }

@@ -11,12 +11,18 @@ public final class BoundColumnValue extends Expression {
     private final int tupleIndex;
     private final int columnIndex;
     private final ColumnInfo column;
+    private final int schemaIndex;
 
     public BoundColumnValue(int tupleIndex, int columnIndex, ColumnInfo column) {
+        this(tupleIndex, columnIndex, column, tupleIndex == 0 ? columnIndex : -1);
+    }
+    public BoundColumnValue(int tupleIndex, int columnIndex, ColumnInfo column, int schemaIndex) {
         this.tupleIndex = tupleIndex;
         this.columnIndex = columnIndex;
         this.column = column;
+        this.schemaIndex = schemaIndex;
     }
+    public int getSchemaIndex() { return schemaIndex; }
     public ColumnInfo getColumnInfo(Schema schema) { return column; }
     public Object evaluate(Environment environment) {
         return environment.getCurrentTuples().get(tupleIndex).getColumnValue(columnIndex);

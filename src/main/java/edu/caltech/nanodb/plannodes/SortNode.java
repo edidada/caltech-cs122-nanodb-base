@@ -117,7 +117,8 @@ public class SortNode extends PlanNode {
             cost = new PlanCost(childCost);
 
             // Sorting in memory is an N*log(N) operation.
-            cost.cpuCost += cost.numTuples * (float) Math.log(cost.numTuples);
+            if (cost.numTuples > 1)
+                cost.cpuCost += cost.numTuples * (float) Math.log(cost.numTuples);
         }
         else {
             logger.info(
