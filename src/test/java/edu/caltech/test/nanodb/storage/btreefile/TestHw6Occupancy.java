@@ -54,4 +54,24 @@ public class TestHw6Occupancy extends SqlTestCase {
         Files.createDirectories(output.getParent());
         Files.writeString(output,"["+ascending+","+oddEven+"]");
     }
+    /** An equal prefix spans multiple leaves; the next greater value is later. */
+    public void testPrefixLookupCrossesLeafBoundaries() throws Exception {
+        tryDoCommand("CREATE TABLE prefix_lookup (a INTEGER,b INTEGER,c CHAR(256)) PROPERTIES (storage='btree');");
+        String padding="p".repeat(256);
+        for(int key=0;key<180;key++)
+            tryDoCommand("INSERT INTO prefix_lookup VALUES (1,"+key+",'"+padding+"');");
+        tryDoCommand("INSERT INTO prefix_lookup VALUES (2,0,'"+padding+"');");
+        BTreeTupleFile file=(BTreeTupleFile)server.getStorageManager().getTableManager().openTable("prefix_lookup").getTupleFile();
+        edu.caltech.nanodb.relations.Tuple first=file.findFirstTupleEquals(new edu.caltech.nanodb.expressions.TupleLiteral(1));
+        Assert.assertNotNull(first);
+        try {Assert.assertEquals(first.getColumnValue(1),0);}
+        finally {first.unpin();}
+        edu.caltech.nanodb.relations.Tuple greater=file.findFirstTupleGreaterThan(new edu.caltech.nanodb.expressions.TupleLiteral(1));
+        Assert.assertNotNull(greater);
+        try {Assert.assertEquals(greater.getColumnValue(0),2);}
+        finally {greater.unpin();}
+        Assert.assertNull(file.findFirstTupleGreaterThan(new edu.caltech.nanodb.expressions.TupleLiteral(2)));
+        Assert.assertTrue(file.verify().isEmpty());
+    }
+
 }

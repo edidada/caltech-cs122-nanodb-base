@@ -380,21 +380,25 @@ public class BTreeTupleFile implements SequentialTupleFile {
 
         LeafPage leaf = navigateToLeafPage(searchKey, false, null);
 
-        if (leaf != null && leaf.getNumTuples() > 0) {
-            // We have at least one tuple to look at, so scan through to find
-            // the first tuple that equals what we are looking for.
+        java.util.Set<Integer> visited = new java.util.HashSet<>();
+        while (leaf != null) {
+            if (!visited.add(leaf.getPageNo()))
+                throw new BTreeTupleFileException("Cycle in leaf chain");
             for (int i = 0; i < leaf.getNumTuples(); i++) {
                 BTreeFilePageTuple tup = leaf.getTuple(i);
-                int cmp = TupleComparator.comparePartialTuples(tup, searchKey);
-                if (cmp > 0) {
-                    tup.pin();
-                    return tup;  // Found it!
+                if (TupleComparator.comparePartialTuples(tup,searchKey) > 0) {
+                    tup.pin();return tup;
                 }
             }
-
+            int next = leaf.getNextPageNo();
             leaf.getDBPage().unpin();
+            if (next == 0) return null;
+            DBPage page = storageManager.loadDBPage(dbFile,next);
+            if (page.readUnsignedByte(0) != BTREE_LEAF_PAGE) {
+                page.unpin();throw new BTreeTupleFileException("Expected leaf page " + next);
+            }
+            leaf = new LeafPage(page,schema);
         }
-
         return null;
     }
 
