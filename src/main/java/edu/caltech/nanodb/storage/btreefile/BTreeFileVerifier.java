@@ -385,6 +385,8 @@ public class BTreeFileVerifier {
         DBPage dbpHeader = storageManager.loadDBPage(dbFile, 0);
         int pageNo = HeaderPage.getRootPageNo(dbpHeader);
 
+        if (pageNo == 0) return;
+
         // Walk down the leftmost pointers in the inner pages until we reach
         // the leftmost leaf page.  Then we can walk across the leaves and
         // check the constraints that should hold on leaves.

@@ -401,7 +401,8 @@ public class InnerPageOperations {
 
         // TODO:  SEE IF WE CAN SIMPLIFY THIS AT ALL...
         if (leftSibling != null &&
-            leftSibling.getUsedSpace() + page.getSpaceUsedByEntries() <
+            leftSibling.getUsedSpace() + page.getSpaceUsedByEntries() +
+            PageTuple.getTupleStorageSize(tupleFile.getSchema(),parentPage.getKey(indexInParentPage - 1)) <=
             leftSibling.getTotalSpace()) {
 
             // Coalesce the current node into the left sibling.
@@ -434,7 +435,8 @@ public class InnerPageOperations {
                 /* delete right key */ false);
         }
         else if (rightSibling != null &&
-                rightSibling.getUsedSpace() + page.getSpaceUsedByEntries() <
+                rightSibling.getUsedSpace() + page.getSpaceUsedByEntries() +
+                PageTuple.getTupleStorageSize(tupleFile.getSchema(),parentPage.getKey(indexInParentPage)) <=
                         rightSibling.getTotalSpace()) {
 
             // Coalesce the current node into the right sibling.
@@ -541,12 +543,14 @@ public class InnerPageOperations {
                     (adjPage == leftSibling ? "left" : "right"), adjPage.getPageNo()));
 
             if (adjPage == leftSibling) {
-                adjPage.movePointersRight(page, entriesToMove, parentKey);
-                parentPage.replaceTuple(indexInParentPage - 1, page.getKey(0));
+                TupleLiteral separator = adjPage.movePointersRight(page, entriesToMove, parentKey);
+                replaceTuple(parentPage,new java.util.ArrayList<>(pagePath.subList(0,pagePath.size()-1)),
+                    adjPage.getPageNo(),separator,page.getPageNo());
             }
             else { // adjPage == right sibling
-                adjPage.movePointersLeft(page, entriesToMove, parentKey);
-                parentPage.replaceTuple(indexInParentPage, adjPage.getKey(0));
+                TupleLiteral separator = adjPage.movePointersLeft(page, entriesToMove, parentKey);
+                replaceTuple(parentPage,new java.util.ArrayList<>(pagePath.subList(0,pagePath.size()-1)),
+                    page.getPageNo(),separator,adjPage.getPageNo());
             }
         }
     }
