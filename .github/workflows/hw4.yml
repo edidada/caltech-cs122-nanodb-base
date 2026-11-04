@@ -25,6 +25,8 @@ jobs:
           gradle-version: '8.14.3'
       - name: Gradle framework, parser, HW1 through HW4
         run: gradle --no-daemon -PtestGroups=framework,parser,hw1,hw2,hw3,hw4 test
+      - name: Official stores-28K optimizer and query-order experiments
+        run: python scripts/hw4_experiments.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -32,4 +34,4 @@ jobs:
           path: |
             target/surefire-reports/
             build/test-results/
-            target/hw3-experiments/
+            target/hw4-experiments/

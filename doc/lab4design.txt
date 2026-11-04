@@ -9,18 +9,26 @@ A:  Refactoring Your Planner
 A1.  What did you name your planner base-class?  Briefly describe what
      functionality you migrated into this class.
 
+Answer: AbstractPlannerImpl extends the retained SimplestPlanner and shares SELECT/HAVING aggregate extraction, immutable AST rewriting, grouping, projection, sorting, limits, alias and natural/USING translation, plus DML makeSimpleSelect. SimplePlanner preserves syntactic FROM/WHERE order; CostBasedJoinPlanner overrides only buildFromWhere. No copy of the complete upper SQL pipeline is maintained.
+
 A2.  Was there any functionality that is common to both your SimplePlanner
      and your CostBasedJoinPlanner that you left duplicated in the
      subclasses?  If so, explain your rationale for each part of the
      duplicated functionality.
+
+Answer: The only subclass-specific path is relational-region construction; no duplicated aggregation/sort/limit implementation. Common helper methods remain in the abstract class. The retained historical SimplestPlanner is unchanged as a reference.
 
 B:  Generating Optimal Joins
 ----------------------------
 
 B1.  Briefly describe how you generate an "optimal" access to a base table.
 
+Answer: Heap FileScan with every applicable single-leaf conjunct, followed by prepare. Aliases are included before deciding which columns are available. No index access paths exist at this assignment stage.
+
 B2.  Briefly describe how you decide when it is acceptable to push
      conjuncts down through an outer join.
+
+Answer: Treat each outer join as one opaque leaf in its parent region. For LEFT, parent WHERE terms may enter only the preserved left input; RIGHT mirrors this. ON-only terms may filter the null-supplying side because unmatched preserved rows must still survive. Remaining WHERE stays above the outer join and remaining ON remains on it. OR is kept whole. NATURAL/USING outer joins are conservatively opaque with filters above.
 
 B3.  The planner in this assignment is still somewhat limited; for example,
      we can't push conjuncts down into subqueries.  Using the stores schema,
@@ -28,13 +36,19 @@ B3.  The planner in this assignment is still somewhat limited; for example,
      beneficial to push a conjunct down into the subquery.  (Your planner
      obviously doesn't need to perform this optimization.)
 
+Answer: SELECT * FROM (SELECT city_id,population FROM cities) t WHERE population>5000000; The outer predicate could reduce work if applied inside the derived query, but the optimizer treats its query block as opaque, as allowed by HW4.
+
 B4.  Enumerate the situations where you call prepare() on plans being
      generated.  Since this operation is somewhat expensive, do you
      see any ways to reduce the number of times you call prepare() in
      your implementation?
 
+Answer: Prepare initial leaf plans to obtain schemas/costs, after attaching leaf filters, on each new DP join, after restoring public output column order, and on the final complete SQL plan. Existing node prepare implementations recursively prepare children, so repeated preparation is currently more expensive than the assignment ideal. A future prepareLocal or immutable prepared-metadata interface could avoid repeated work; no unsupported claim of one local prepare per candidate is made.
+
 B5.  Given a schema t1(a, c1), t2(a, c2), t3(a, c3), and this SQL query:
      SELECT * FROM t1 JOIN t2 ON t1.a = t2.a JOIN t3 ON t2.a = t3.a;
+
+Answer: No explicit t1.a=t3.a conjunct exists, so joining t1 and t3 first creates a Cartesian product even though equality is transitively implied. Equality-class inference could add that derived condition. This implementation does not invent transitive conjuncts.
 
      Assume that we are using the simple cost-based join planning strategy
      described in this assignment.  What issue arises when the planner
@@ -44,6 +58,8 @@ B5.  Given a schema t1(a, c1), t2(a, c2), t3(a, c3), and this SQL query:
 
 B6.  Is it possible to end up with unused conjuncts (from the WHERE and ON
      clauses) after planning joins?  Briefly explain why or why not.
+
+Answer: Every original conjunct is tracked and removed from the unused set once applied. Full-schema terms should be applicable by the complete region, but outer-join restrictions can remain above a boundary. A final filter retains any unused terms instead of silently dropping them. Subquery blocks and their internal conditions are not flattened.
 
 C:  Costing SQL Queries
 -----------------------
@@ -57,20 +73,28 @@ to write explanatory notes after your output.
 
 C1.  EXPLAIN SELECT * FROM cities WHERE population > 5000000;
 
+Execution pending: full stores-28K driver is prepared, but publication of the new HW4 workflow is blocked by missing workflow scope. No EXPLAIN output or execution result is claimed yet.
+
 C2.  EXPLAIN SELECT store_id FROM stores, cities
      WHERE stores.city_id = cities.city_id AND
            cities.population > 1000000;
+
+Execution pending: full stores-28K driver is prepared, but publication of the new HW4 workflow is blocked by missing workflow scope. No EXPLAIN output or execution result is claimed yet.
 
 C3.  EXPLAIN SELECT store_id FROM stores JOIN
                     (SELECT city_id FROM cities
                      WHERE population > 1000000) AS big_cities
                     ON stores.city_id = big_cities.city_id;
 
+Execution pending: full stores-28K driver is prepared, but publication of the new HW4 workflow is blocked by missing workflow scope. No EXPLAIN output or execution result is claimed yet.
+
 C4.  EXPLAIN SELECT store_id, property_costs
      FROM stores, cities, states
      WHERE stores.city_id = cities.city_id AND
            cities.state_id = states.state_id AND
            state_name = 'Oregon' AND property_costs > 500000;
+
+Execution pending: full stores-28K driver is prepared, but publication of the new HW4 workflow is blocked by missing workflow scope. No EXPLAIN output or execution result is claimed yet.
 
 D:  Extra Credit [OPTIONAL]
 ---------------------------

@@ -36,6 +36,7 @@ public final class Hw3Experiments {
         return buffer.toString(StandardCharsets.UTF_8);
     }
     public static void main(String[] args) throws Exception {
+        String experimentDir=args.length>0?args[0]:"target/hw3-experiments";
         PrintStream output=System.out;
         System.setOut(SINK);
         SessionState.get().setOutputStream(SINK);
@@ -85,6 +86,12 @@ public final class Hw3Experiments {
                 {"range_low_first","SELECT * FROM (SELECT * FROM cities WHERE city_id>20) t WHERE city_id<200"},
                 {"range_high_first","SELECT * FROM (SELECT * FROM cities WHERE city_id<200) t WHERE city_id>20"}
             };
+            if(args.length>0) {
+                List<String[]> expanded=new ArrayList<>(java.util.Arrays.asList(queries));
+                expanded.add(new String[]{"oregon_order_b","SELECT store_id,property_costs FROM states,cities,stores WHERE property_costs>500000 AND state_name='Oregon' AND cities.state_id=states.state_id AND stores.city_id=cities.city_id"});
+                expanded.add(new String[]{"oregon_order_c","SELECT store_id,property_costs FROM cities JOIN states ON cities.state_id=states.state_id JOIN stores ON stores.city_id=cities.city_id WHERE state_name='Oregon' AND property_costs>500000"});
+                queries=expanded.toArray(new String[0][]);
+            }
             first=true;
             for(String[] query:queries) {
                 String explanation=explain(server,query[1]);
@@ -111,12 +118,12 @@ public final class Hw3Experiments {
                 report.append(String.format(Locale.ROOT,"{\"name\":%s,\"sql\":%s,\"estimatedRows\":%.8f,\"cpuCost\":%.8f,\"blockIOs\":%d,\"actualRows\":%d,\"seconds\":%.8f,\"resultSha256\":%s,\"explain\":%s}",
                     json(query[0]),json(query[1]),cost.numTuples,cost.cpuCost,cost.numBlockIOs,rows.size(),seconds,
                     json(HexFormat.of().formatHex(digest.digest())),json(explanation)));
-                Path.of("target/hw3-experiments").toFile().mkdirs();
-                Files.writeString(Path.of("target/hw3-experiments/progress.json"),report.toString()+"]}");
+                Path.of(experimentDir).toFile().mkdirs();
+                Files.writeString(Path.of(experimentDir,"progress.json"),report.toString()+"]}");
                 output.println(query[0]+": rows="+rows.size()+" estimated="+cost.numTuples+" seconds="+seconds);
             }
             report.append("]}");
-            Files.writeString(Path.of("target/hw3-experiments/results.json"),report.toString());
+            Files.writeString(Path.of(experimentDir,"results.json"),report.toString());
         }
         finally { if(!server.shutdown())throw new AssertionError("Shutdown failed"); }
     }
