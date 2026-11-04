@@ -721,23 +721,27 @@ public class InnerPage implements DataPage {
             }
         }
 
-        /* TODO:  IMPLEMENT THE REST OF THIS METHOD.
-         *
-         * You can use PageTuple.storeTuple() to write a key into a DBPage.
-         *
-         * The DBPage.write() method is useful for copying a large chunk of
-         * data from one DBPage to another.
-         *
-         * Your implementation also needs to properly handle the incoming
-         * parent-key, and produce a new parent-key as well.
-         */
-        logger.error("NOT YET IMPLEMENTED:  movePointersLeft()");
-
-        // Update the cached info for both non-leaf pages.
-        loadPageContents();
-        leftSibling.loadPageContents();
-
-        return null;
+        if (count == 0) return parentKey == null ? null : TupleLiteral.fromTuple(parentKey);
+        if (leftSibling == this) throw new IllegalArgumentException("Cannot move pointers into the same page");
+        TupleLiteral promoted = count < numPointers ? TupleLiteral.fromTuple(keys[count - 1]) : null;
+        int movedEnd = pointerOffsets[count - 1] + 2;
+        int length = movedEnd - OFFSET_FIRST_POINTER;
+        if (length + parentKeyLen > leftSibling.getFreeSpace())
+            throw new IllegalArgumentException("Left sibling has insufficient free space");
+        int destination = leftSibling.endOffset;
+        if (parentKey != null) destination = PageTuple.storeTuple(leftSibling.dbPage,destination,schema,parentKey);
+        leftSibling.dbPage.write(destination,dbPage.getPageData(),OFFSET_FIRST_POINTER,length);
+        leftSibling.dbPage.writeShort(OFFSET_NUM_POINTERS,leftSibling.numPointers + count);
+        int remaining = numPointers - count, oldEnd = endOffset, newEnd = OFFSET_FIRST_POINTER;
+        if (remaining > 0) {
+            int start = pointerOffsets[count];
+            dbPage.moveDataRange(start,OFFSET_FIRST_POINTER,oldEnd - start);
+            newEnd += oldEnd - start;
+        }
+        dbPage.writeShort(OFFSET_NUM_POINTERS,remaining);
+        if (BTreeTupleFile.CLEAR_OLD_DATA) dbPage.setDataRange(newEnd,oldEnd - newEnd,(byte)0);
+        loadPageContents();leftSibling.loadPageContents();
+        return promoted;
     }
 
 
@@ -910,6 +914,8 @@ public class InnerPage implements DataPage {
                 numPointers + "), got " + count);
         }
 
+        if (count == 0) return parentKey == null ? null : TupleLiteral.fromTuple(parentKey);
+
         if (logger.isTraceEnabled()) {
             logger.trace("Non-leaf page " + getPageNo() +
                 " contents before moving pointers right:\n" + toFormattedString());
@@ -936,32 +942,20 @@ public class InnerPage implements DataPage {
             }
         }
 
-        /* TODO:  IMPLEMENT THE REST OF THIS METHOD.
-         *
-         * You can use PageTuple.storeTuple() to write a key into a DBPage.
-         *
-         * The DBPage.write() method is useful for copying a large chunk of
-         * data from one DBPage to another.
-         *
-         * Your implementation also needs to properly handle the incoming
-         * parent-key, and produce a new parent-key as well.
-         */
-        logger.error("NOT YET IMPLEMENTED:  movePointersRight()");
-
-        // Update the cached info for both non-leaf pages.
-        loadPageContents();
-        rightSibling.loadPageContents();
-
-        if (logger.isTraceEnabled()) {
-            logger.trace("Non-leaf page " + getPageNo() +
-                " contents after moving pointers right:\n" + toFormattedString());
-
-            logger.trace("Right-sibling page " + rightSibling.getPageNo() +
-                " contents after moving pointers right:\n" +
-                rightSibling.toFormattedString());
-        }
-
-        return null;
+        if (rightSibling == this) throw new IllegalArgumentException("Cannot move pointers into the same page");
+        TupleLiteral promoted = startPointerIndex > 0 ? TupleLiteral.fromTuple(keys[startPointerIndex - 1]) : null;
+        if (len + parentKeyLen > rightSibling.getFreeSpace())
+            throw new IllegalArgumentException("Right sibling has insufficient free space");
+        rightSibling.dbPage.moveDataRange(OFFSET_FIRST_POINTER,OFFSET_FIRST_POINTER + len + parentKeyLen,
+            rightSibling.endOffset - OFFSET_FIRST_POINTER);
+        rightSibling.dbPage.write(OFFSET_FIRST_POINTER,dbPage.getPageData(),startOffset,len);
+        if (parentKey != null) PageTuple.storeTuple(rightSibling.dbPage,OFFSET_FIRST_POINTER + len,schema,parentKey);
+        rightSibling.dbPage.writeShort(OFFSET_NUM_POINTERS,rightSibling.numPointers + count);
+        int newEnd = startPointerIndex == 0 ? OFFSET_FIRST_POINTER : pointerOffsets[startPointerIndex - 1] + 2;
+        dbPage.writeShort(OFFSET_NUM_POINTERS,numPointers - count);
+        if (BTreeTupleFile.CLEAR_OLD_DATA) dbPage.setDataRange(newEnd,endOffset - newEnd,(byte)0);
+        loadPageContents();rightSibling.loadPageContents();
+        return promoted;
     }
 
 
