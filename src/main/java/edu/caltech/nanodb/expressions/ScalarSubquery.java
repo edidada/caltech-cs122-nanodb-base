@@ -13,24 +13,12 @@ import edu.caltech.nanodb.relations.Tuple;
  * predicate.
  */
 public class ScalarSubquery extends SubqueryOperator {
-    /** The cached result of evaluating the scalar subquery. */
-    Object result;
-
-
-    /**
-     * A flag indicating whether the subquery has been evaluated, and
-     * therefore whether {@link #result} is valid or not.
-     */
-    boolean evaluated;
-
-
     public ScalarSubquery(SelectClause subquery) {
         if (subquery == null)
             throw new IllegalArgumentException("subquery cannot be null");
 
         this.subquery = subquery;
 
-        this.evaluated = false;
     }
 
 
@@ -49,46 +37,34 @@ public class ScalarSubquery extends SubqueryOperator {
     }
 
 
+    /** Evaluate afresh for every outer row; scalar cardinality follows the
+     * framework's existing exactly-one-row contract. */
     public Object evaluate(Environment env) {
         if (subqueryPlan == null)
             throw new IllegalStateException("No execution plan for subquery");
-
-        if (!evaluated) {
-            // Initialize the subquery plan so that it can be evaluated.
-            subqueryPlan.initialize();
-
-            // Get the first tuple from the subquery, and make sure it has
-            // exactly one row and one column.
-
-            Tuple t1 = subqueryPlan.getNextTuple();
-            if (t1 == null) {
-                throw new ExpressionException(
-                    "Scalar subquery must produce exactly one row (got 0)");
-            }
-
-            int numCols = t1.getColumnCount();
-            if (numCols != 1) {
-                t1.unpin();
-                throw new ExpressionException(
-                    "Scalar subquery must produce exactly one column (got " +
-                        numCols + " instead)");
-            }
-
-            // Make sure the subquery plan doesn't generate a second tuple!
-
-            Tuple t2 = subqueryPlan.getNextTuple();
-            if (t2 != null) {
-                t1.unpin();
-                t2.unpin();
-                throw new ExpressionException(
-                    "Scalar subquery must produce exactly one row (got > 1)");
-            }
-
-            result = t1.getColumnValue(0);
-            t1.unpin();
+        subqueryPlan.initialize();
+        Tuple first = null, second = null;
+        try {
+            first = subqueryPlan.getNextTuple();
+            if (first == null)
+                throw new ExpressionException("Scalar subquery must produce exactly one row (got 0)");
+            if (first.getColumnCount() != 1)
+                throw new ExpressionException("Scalar subquery must produce exactly one column");
+            // Copy before advancing; some plan nodes reuse tuple objects.
+            Object value = first.getColumnValue(0);
+            first.unpin();first = null;
+            second = subqueryPlan.getNextTuple();
+            if (second != null)
+                throw new ExpressionException("Scalar subquery must produce exactly one row (got > 1)");
+            return value;
         }
-
-        return result;
+        finally {
+            try {
+                if (first != null) first.unpin();
+                if (second != null) second.unpin();
+            }
+            finally {subqueryPlan.cleanUp();}
+        }
     }
 
 

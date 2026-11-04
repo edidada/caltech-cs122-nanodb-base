@@ -46,14 +46,15 @@ public class ExistsOperator extends SubqueryOperator {
 
         subqueryPlan.initialize();
 
-        // See if the subquery will produce any tuples!
-        Tuple tuple = subqueryPlan.getNextTuple();
-        if (tuple != null)
-            tuple.unpin();
-
-        subqueryPlan.cleanUp();
-
-        return (tuple != null);
+        Tuple tuple = null;
+        try {
+            tuple = subqueryPlan.getNextTuple();
+            return tuple != null;
+        }
+        finally {
+            try {if (tuple != null) tuple.unpin();}
+            finally {subqueryPlan.cleanUp();}
+        }
     }
 
 

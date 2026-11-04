@@ -73,43 +73,36 @@ public class InSubqueryOperator extends SubqueryOperator {
     }
 
 
-    /**
-     * Evaluates this comparison expression and returns either
-     * {@link java.lang.Boolean#TRUE} or {@link java.lang.Boolean#FALSE}.  If
-     * either the left-hand or right-hand expression evaluates to
-     * <code>null</code> (representing the SQL <tt>NULL</tt> value), then the
-     * expression's result is always <code>FALSE</code>.
-     *
-     * @design (Donnie) We have to suppress "unchecked operation" warnings on
-     *         this code, since {@link Comparable} is a generic (and thus allows
-     *         us to specify the type of object being compared), but we want to
-     *         use it without specifying any types.
-     */
-    @SuppressWarnings("unchecked")
+    /** SQL row equality is unknown if an otherwise matching row contains NULL.
+     * A definite match dominates unknown; an empty set always yields false. */
     public Object evaluate(Environment env) throws ExpressionException {
         if (subqueryPlan == null)
             throw new IllegalStateException("No execution plan for subquery");
-
-        // Compute the values that we need to compare to, into a tuple.  Then
-        // we can use the tuple-comparator to see if the subquery produces the
-        // same tuple-values.
-        TupleLiteral valueTup = new TupleLiteral();
-        for (Expression expr : exprList) {
-            // TODO:  Return NULL if one of the values is NULL?
-            valueTup.addValue(expr.evaluate(env));
-        }
-
+        List<Object> values = new ArrayList<>();
+        for (Expression expr : exprList) values.add(expr.evaluate(env));
         subqueryPlan.initialize();
-        while (true) {
-            Tuple subqueryTup = subqueryPlan.getNextTuple();
-            if (subqueryTup == null)
-                break;
-
-            if (TupleComparator.areTuplesEqual(valueTup, subqueryTup))
-                return invert ? false : true;
+        boolean unknown = false;
+        try {
+            Tuple row;
+            while ((row = subqueryPlan.getNextTuple()) != null) {
+                try {
+                    if (row.getColumnCount() != values.size())
+                        throw new ExpressionException("IN subquery column count does not match left operand");
+                    boolean rowUnknown = false, different = false;
+                    for (int i = 0; i < values.size(); i++) {
+                        Object equal = new CompareOperator(CompareOperator.Type.EQUALS,
+                            new LiteralValue(values.get(i)),new LiteralValue(row.getColumnValue(i))).evaluate(env);
+                        if (Boolean.FALSE.equals(equal)) {different = true;break;}
+                        if (equal == null) rowUnknown = true;
+                    }
+                    if (!different && !rowUnknown) return !invert;
+                    unknown |= !different && rowUnknown;
+                }
+                finally {row.unpin();}
+            }
+            return unknown ? null : invert;
         }
-
-        return invert ? true : false;
+        finally {subqueryPlan.cleanUp();}
     }
 
 
@@ -172,7 +165,7 @@ public class InSubqueryOperator extends SubqueryOperator {
 
         if (obj instanceof InSubqueryOperator) {
             InSubqueryOperator other = (InSubqueryOperator) obj;
-            return exprList.equals(other.exprList) &&
+            return invert == other.invert && exprList.equals(other.exprList) &&
                    subquery.equals(other.subquery);
         }
 
@@ -182,7 +175,7 @@ public class InSubqueryOperator extends SubqueryOperator {
 
     @Override
     public int hashCode() {
-        int hash = 7;
+        int hash = invert ? 11 : 7;
 
         for (Expression expr : exprList)
             hash = 31 * hash + expr.hashCode();
@@ -203,7 +196,8 @@ public class InSubqueryOperator extends SubqueryOperator {
         InSubqueryOperator op = (InSubqueryOperator) super.clone();
 
         // Clone the subexpressions.
-        op.exprList = (ArrayList<Expression>) exprList.clone();
+        op.exprList = new ArrayList<>();
+        for (Expression expr : exprList) op.exprList.add(expr.duplicate());
 
         // Don't clone the subquery, since subqueries currently aren't cloneable.
 
