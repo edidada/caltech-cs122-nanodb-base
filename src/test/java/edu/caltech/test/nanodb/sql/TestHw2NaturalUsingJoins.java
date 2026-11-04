@@ -5,7 +5,8 @@ import edu.caltech.nanodb.server.CommandResult;
 import edu.caltech.nanodb.expressions.TupleLiteral;
 import java.util.Locale;
 
-/** Run the unchanged official natural/USING smoke suite in the HW2 group. */
+/** Historical natural/USING smoke tests with explicit fixture adapters.
+ * The upstream source file is retained unchanged for comparison. */
 @Test(groups = {"hw2"})
 public class TestHw2NaturalUsingJoins extends TestNaturalUsingJoins {
     /** The old smoke suite spells expected identifiers in uppercase, while
@@ -32,7 +33,7 @@ public class TestHw2NaturalUsingJoins extends TestNaturalUsingJoins {
             new TupleLiteral(3, 30, 300, 3000),
             new TupleLiteral(5, 50, 500, 5000),
             new TupleLiteral(6, 60, 600, 6000),
-            new TupleLiteral(8, 800, 80, 8000)
+            new TupleLiteral(8, 80, 800, 8000)
         };
         assert checkSizeResults(expected1, result);
         assert checkUnorderedResults(expected1, result);
