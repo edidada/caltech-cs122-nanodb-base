@@ -833,7 +833,7 @@ public class FromClause {
         Schema rightSchema, Set<String> commonCols) {
 
         computedJoinExpr = null;
-        computedSelectValues = null;
+        computedSelectValues = new ArrayList<>();
         ArrayList<ColumnInfo> resultCols = new ArrayList<>();
 
         if (!commonCols.isEmpty()) {
@@ -849,7 +849,7 @@ public class FromClause {
             // names aren't ambiguous on one or the other side.
             for (String name: commonCols) {
                 checkJoinColumn(context, "left", leftSchema, name);
-                checkJoinColumn(context, "right", leftSchema, name);
+                checkJoinColumn(context, "right", rightSchema, name);
 
                 // Seems OK, so add it to the result.
                 ColumnInfo lhsColInfo = leftSchema.getColumnInfo(name);

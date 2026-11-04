@@ -108,7 +108,7 @@ public class SimplePlanner extends SimplestPlanner {
             throw new InvalidSQLException("SELECT DISTINCT is outside the HW2 planner");
         if (!select.getOrderByExprs().isEmpty()) plan = new SortNode(plan, select.getOrderByExprs());
         if (select.getLimit() > 0 || select.getOffset() > 0)
-            throw new InvalidSQLException("LIMIT/OFFSET not implemented in HW2 yet");
+            plan = new LimitOffsetNode(plan, select.getLimit(), select.getOffset());
         plan.prepare();
         return plan;
     }

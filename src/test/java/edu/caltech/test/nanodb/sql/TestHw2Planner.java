@@ -79,4 +79,28 @@ public class TestHw2Planner extends SqlTestCase {
             Assert.assertNull(rows.get(2).getColumnValue(2));
         }
     }
+
+    public void testLimitOffsetWithSortAndEmptyInput() throws Exception {
+        tryDoCommand("CREATE TABLE limited (a INTEGER);");
+        for (int n : new int[]{4, 1, 3, 2}) tryDoCommand("INSERT INTO limited VALUES ("+n+");");
+        List<TupleLiteral> rows=query("SELECT a FROM limited ORDER BY a LIMIT 2 OFFSET 1");
+        Assert.assertEquals(rows.size(),2);
+        Assert.assertEquals(rows.get(0).getColumnValue(0),2);
+        Assert.assertEquals(rows.get(1).getColumnValue(0),3);
+        Assert.assertEquals(query("SELECT * FROM limited LIMIT 50 OFFSET 4").size(),0);
+        Assert.assertEquals(query("SELECT * FROM limited LIMIT 1 OFFSET 99").size(),0);
+        Assert.assertEquals(query("SELECT * FROM limited WHERE 1=0 LIMIT 1").size(),0);
+        Assert.assertEquals(query("SELECT * FROM limited LIMIT 1").size(),1);
+        Assert.assertEquals(query("SELECT * FROM limited OFFSET 2").size(),2);
+        // Preserve the explicit course AST contract (zero means unlimited).
+        Assert.assertEquals(query("SELECT * FROM limited LIMIT 0").size(),4);
+    }
+
+    public void testNaturalJoinWithNoCommonColumns() throws Exception {
+        tryDoCommand("CREATE TABLE natural_left (a INTEGER);");
+        tryDoCommand("CREATE TABLE natural_right (b INTEGER);");
+        tryDoCommand("INSERT INTO natural_left VALUES (1);");
+        tryDoCommand("INSERT INTO natural_right VALUES (2);");
+        Assert.assertEquals(query("SELECT * FROM natural_left NATURAL JOIN natural_right").size(),1);
+    }
 }
