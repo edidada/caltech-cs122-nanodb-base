@@ -786,7 +786,8 @@ public class LeafPageOperations {
             int existingLeft = split - (goesLeft ? 1 : 0);
             int leftBytes = prefix[existingLeft] + (goesLeft ? tuple.getStorageSize() : 0);
             int rightBytes = prefix[count] - prefix[existingLeft] + (goesLeft ? 0 : tuple.getStorageSize());
-            if (leftBytes > leaf.getTotalSpace() || rightBytes > newLeaf.getTotalSpace()) continue;
+            if (leftBytes > leaf.getTotalSpace() - LeafPage.OFFSET_FIRST_TUPLE ||
+                rightBytes > newLeaf.getTotalSpace() - LeafPage.OFFSET_FIRST_TUPLE) continue;
             int difference = Math.abs(leftBytes - rightBytes);
             if (difference < bestDifference) {
                 bestDifference = difference;keep = existingLeft;insertLeft = goesLeft;
