@@ -1,0 +1,117 @@
+{
+  "upstream": "https://github.com/electrum/tpch-dbgen",
+  "commit": "32f1c1b92d1664dba542e927d23d86ffa57aa253",
+  "kind": "TPC-H dbgen query templates mirror; not Caltech-provided instantiated queries or solutions",
+  "files": [
+    {
+      "path": "queries/1.sql",
+      "sha256": "4895c6191f38412d6277b0954cb91c162295a534c719a8f43b609b88f15a7120",
+      "bytes": 638
+    },
+    {
+      "path": "queries/2.sql",
+      "sha256": "6dc62b732151ee41c8fd4293fb866c2549c509c0b78666c5c614573ab61be81c",
+      "bytes": 765
+    },
+    {
+      "path": "queries/3.sql",
+      "sha256": "e8489696d46d42ef555256d10200251a66a2aab279d6e06b415fbb1864ad187d",
+      "bytes": 489
+    },
+    {
+      "path": "queries/4.sql",
+      "sha256": "5b8cf823d09e4a1a566a235a7172b3fcfefaae00b904c9e2e8f348f54a310bad",
+      "bytes": 446
+    },
+    {
+      "path": "queries/5.sql",
+      "sha256": "dae9bc188bade17eaf17bb51d9c3a4b035303999bf5bf9a1a56115a7646ff7af",
+      "bytes": 574
+    },
+    {
+      "path": "queries/6.sql",
+      "sha256": "6906f7f0f39a2b9adcfba00cbe110b3af725ef63cf361f5bdd2021a965ccdaa6",
+      "bytes": 347
+    },
+    {
+      "path": "queries/7.sql",
+      "sha256": "1116f27777d26da38c32cfde3bd5ef446a8603cef1a4d547e7417d4fcc3cd158",
+      "bytes": 880
+    },
+    {
+      "path": "queries/8.sql",
+      "sha256": "90ee550767735a1358ce23f372c257fdf5e96907db98c11c480784c7764c863d",
+      "bytes": 856
+    },
+    {
+      "path": "queries/9.sql",
+      "sha256": "fa774d097eb36667e0579177933597ca8080990434ecccc9bffc1377a00ea109",
+      "bytes": 702
+    },
+    {
+      "path": "queries/10.sql",
+      "sha256": "6f7855d44f82d403e2f54cf7cc8ff05755d6fe3ee9a1213929ee883a711fb54c",
+      "bytes": 608
+    },
+    {
+      "path": "queries/11.sql",
+      "sha256": "0950051f2d32560664a74ffc141af60ff6441d73100be8124b6e1ed2b82acb99",
+      "bytes": 597
+    },
+    {
+      "path": "queries/12.sql",
+      "sha256": "d1e0db00676b4083bb2da8308499caca8ddeee213b3300fac32daf077e0e8fc8",
+      "bytes": 685
+    },
+    {
+      "path": "queries/13.sql",
+      "sha256": "8c59e2cc930e8ea56935d6dffbbee74704cd849fa8b56db01c4c10b491e9294b",
+      "bytes": 443
+    },
+    {
+      "path": "queries/14.sql",
+      "sha256": "aa4cc90172fed57e6271ee3fce4075fa760c781d94ab9b9b2f1a6fa318060527",
+      "bytes": 422
+    },
+    {
+      "path": "queries/15.sql",
+      "sha256": "875fd17da198d89a2f8f3cf850c8a47433411187450c2108731628541f2f4599",
+      "bytes": 601
+    },
+    {
+      "path": "queries/16.sql",
+      "sha256": "6b3914910ad5ec13ba78811bda112ade48c76ee30724b4eacc954c4864e72d88",
+      "bytes": 572
+    },
+    {
+      "path": "queries/17.sql",
+      "sha256": "d72fbbaeddf82eddc3345c226576cea735d1ca317b3380272ef36681e0afd6c5",
+      "bytes": 387
+    },
+    {
+      "path": "queries/18.sql",
+      "sha256": "b0f6dda18fba36a44eb0d1515928f382bbbf3578f457ce145231c51b4da08a1f",
+      "bytes": 542
+    },
+    {
+      "path": "queries/19.sql",
+      "sha256": "8bbbf6721c26be96da5408e975f151ae72250d93c7058e0a41eff601a77e3a88",
+      "bytes": 1048
+    },
+    {
+      "path": "queries/20.sql",
+      "sha256": "57b0aa2a676b09e4370913f7aedf36600b4bacca07a6ad7428be8d0e60f110ff",
+      "bytes": 667
+    },
+    {
+      "path": "queries/21.sql",
+      "sha256": "87101670098f20e9a9bc10d2253b415438f9a2cc9b2787c7a220ae249c7d401d",
+      "bytes": 758
+    },
+    {
+      "path": "queries/22.sql",
+      "sha256": "80dcf492741a61b28aed98f342395dce73c5f585f49206bbf91c8ee4cc4d99a1",
+      "bytes": 753
+    }
+  ]
+}

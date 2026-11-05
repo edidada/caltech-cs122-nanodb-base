@@ -919,6 +919,15 @@ public class NanoSQLTranslator extends NanoSQLBaseVisitor<Object> {
     }
 
     @Override
+    public Object visitExprSubstring(NanoSQLParser.ExprSubstringContext ctx) {
+        java.util.ArrayList<Expression> args = new java.util.ArrayList<>();
+        args.add((Expression) visit(ctx.value));
+        args.add((Expression) visit(ctx.start));
+        if (ctx.length != null) args.add((Expression) visit(ctx.length));
+        return new FunctionCall("SUBSTRING",false,args);
+    }
+
+    @Override
     public Object visitExprFunctionCall(NanoSQLParser.ExprFunctionCallContext ctx) {
         // Function calls are already represented as expressions, so we can
         // just call the functionCall() translation and return its result.

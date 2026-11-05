@@ -351,6 +351,7 @@ cmdProperties:
 expression:
         literalValue                                        # ExprLiteral
       | columnRef                                           # ExprColumnRef
+      | SUBSTRING '(' value=expression FROM start=expression (FOR length=expression)? ')' # ExprSubstring
       | functionCall                                        # ExprFunctionCall
       | op=('+' | '-') expression                           # ExprUnarySign
       | expression op=('*' | '/' | '%') expression          # ExprMul
@@ -400,4 +401,4 @@ expressionList: '(' (expression (',' expression)*)? ')' ;
 // If a "DISTINCT" modifier is inappropriate for a given kind of function,
 // the code should detect this and complain about it.
 functionCall:
-        functionName=IDENT '(' (DISTINCT? expression (',' expression)*)? ')' ;
+        functionName=(IDENT | SUBSTRING) '(' (DISTINCT? expression (',' expression)*)? ')' ;

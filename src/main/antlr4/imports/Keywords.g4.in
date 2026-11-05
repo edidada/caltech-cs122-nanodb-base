@@ -128,3 +128,6 @@ TYPE_TIMESTAMP  : 'timestamp' ;
 TYPE_TINYINT    : 'tinyint' ;
 TYPE_VARCHAR    : 'varchar' ;   // varchar(length)
 TYPE_VARYING    : 'varying' ;   // character varying(length)
+
+SUBSTRING : 'substring' ;
+FOR : 'for' ;
