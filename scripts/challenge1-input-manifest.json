@@ -1,0 +1,91 @@
+{
+  "verified_at": "2026-11-05",
+  "course_version": "Caltech CS122 Winter2019",
+  "inspection": "source download and archive inspection only; no local database execution",
+  "official_pages": [
+    "https://courses.cms.caltech.edu/cs122/assignments/challenge1.html",
+    "https://courses.cms.caltech.edu/cs122/assignments/challenge2.html"
+  ],
+  "sources": [
+    {
+      "url": "https://courses.cms.caltech.edu/cs122/assignments/challenge1/make-tpch.sql",
+      "bytes": 3639,
+      "sha256": "83928ef0f06ffd6b5114c856b7d9d1e3a6341483183669c8de991cf7392b9a0d"
+    },
+    {
+      "url": "https://courses.cms.caltech.edu/cs122/assignments/challenge1/s-0.01.tbz",
+      "bytes": 1904784,
+      "sha256": "6828f5f22d073f85c22990471d854a77ec55c8c34390afbf9dd8ec201d60b472"
+    }
+  ],
+  "sql_members": [
+    {
+      "name": "s-0.01/customer.sql",
+      "bytes": 300990,
+      "sha256": "344575ae3547dd6f4aff00ccc43bec1187cb0a5bfc4a26e52bb11525c670f9ca",
+      "insert_statements": 1500
+    },
+    {
+      "name": "s-0.01/nation.sql",
+      "bytes": 3024,
+      "sha256": "0042925de208c30b3221bb0475198c76961788d90fb11cae901746e9ec5c997a",
+      "insert_statements": 25
+    },
+    {
+      "name": "s-0.01/supplier.sql",
+      "bytes": 17595,
+      "sha256": "10436d7caccf13b65eb4dbea7b47e6fbeed5a2071dde9e9da00095b17cf354e0",
+      "insert_statements": 100
+    },
+    {
+      "name": "s-0.01/lineitem.sql",
+      "bytes": 10032300,
+      "sha256": "2049e0d98eb494dc8f2d514def5a2216a9c93605f13e83263dcae424a6dcdc51",
+      "insert_statements": 60175
+    },
+    {
+      "name": "s-0.01/part.sql",
+      "bytes": 313134,
+      "sha256": "441067bf24a3529220a61b63f709971f1ca9a3c995a85684c17dfccee4346855",
+      "insert_statements": 2000
+    },
+    {
+      "name": "s-0.01/partsupp.sql",
+      "bytes": 1417705,
+      "sha256": "98f8f7dfd19b75c46f849dc0705750cf1ffa2594b754c7035c717c530e96de85",
+      "insert_statements": 8000
+    },
+    {
+      "name": "s-0.01/orders.sql",
+      "bytes": 2229137,
+      "sha256": "48a9ce00d04456d042a8b9f8ad7e81ce928960077edb742639e488a998fbde2b",
+      "insert_statements": 15000
+    },
+    {
+      "name": "s-0.01/region.sql",
+      "bytes": 549,
+      "sha256": "1512cf10ef15a8253cd36efdcbb3df0458e604caa7583ef74ea8cdbbb06cefad",
+      "insert_statements": 5
+    }
+  ],
+  "requirements": {
+    "challenge1": [
+      "10 MiB buffer pool",
+      "chosen scale at least SF0.01",
+      "load all eight tables",
+      "ANALYZE all tables",
+      "shutdown and restart included in timing",
+      "verify COUNT and grouped results after restart",
+      "record datafiles total bytes",
+      "ultimate target includes transactions, indexes and key constraints"
+    ],
+    "challenge2": [
+      "SF0.01 or greater",
+      "ANALYZE before planning",
+      "attempt all 22 queries and report parse/plan/execute outcomes and correctness",
+      "per-query timing and timeout records",
+      "CASE / EXTRACT / SUBSTRING / view and correlated-query support as required"
+    ],
+    "submission": "self-study reports only; course competition submission not performed"
+  }
+}

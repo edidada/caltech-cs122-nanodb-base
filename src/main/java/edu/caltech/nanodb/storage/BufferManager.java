@@ -382,6 +382,9 @@ public class BufferManager {
      */
     public void recordPageUnpinned(DBPage dbPage) {
         synchronized (guard) {
+            if (dbPage.getPinCount() == 1)
+                for (BufferManagerObserver observer : observers)
+                    observer.beforeLastPageUnpinned(dbPage);
             int sessionID = SessionState.get().getSessionID();
 
             // Retrieve the set of pages pinned by the current session.
@@ -425,6 +428,22 @@ public class BufferManager {
      * generally done at the end of each transaction so that pages aren't
      * pinned forever, and can actually be evicted from the buffer manager.
      */
+    /** Log pending changes at a transaction boundary while each page is pinned.
+     * Snapshot keys because WAL append may evict other, already logged pages.
+     * BTree writers are serialized by the caller's single-writer contract. */
+    public void visitDirtyPages(DBFileType type, java.util.function.Consumer<DBPage> visitor) {
+        synchronized (guard) {
+            for (CachedPageInfo key : new ArrayList<>(cachedPages.keySet())) {
+                DBPage page = cachedPages.get(key);
+                if (page == null || page.getDBFile().getType() != type ||
+                    !page.hasUnloggedChanges()) continue;
+                page.pin();
+                try {visitor.accept(page);}
+                finally {page.unpin();}
+            }
+        }
+    }
+
     public void unpinAllSessionPages() {
         synchronized (guard) {
             // Unpin all pages pinned by this session.

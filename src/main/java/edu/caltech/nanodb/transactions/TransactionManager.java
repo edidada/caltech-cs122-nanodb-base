@@ -294,6 +294,8 @@ public class TransactionManager implements BufferManagerObserver {
         }
 
         int txnID = txnState.getTransactionID();
+        storageManager.getBufferManager().visitDirtyPages(DBFileType.BTREE_TUPLE_FILE,
+            this::recordPendingIndexPage);
 
         if (txnState.hasLoggedTxnStart()) {
             // Must record the transaction as committed to the write-ahead log.
@@ -327,6 +329,8 @@ public class TransactionManager implements BufferManagerObserver {
         }
 
         int txnID = txnState.getTransactionID();
+        storageManager.getBufferManager().visitDirtyPages(DBFileType.BTREE_TUPLE_FILE,
+            this::recordPendingIndexPage);
 
         if (txnState.hasLoggedTxnStart()) {
             // Must rollback the transaction using the write-ahead log.
@@ -352,14 +356,33 @@ public class TransactionManager implements BufferManagerObserver {
      *
      * @param pages the collection of pages that are about to be evicted.
      */
+    /** Deferred index logging occurs before last-unpin, commit or rollback.
+     * Thus an unlogged index page cannot become an eviction candidate while
+     * another WAL record is being assembled. Explicit FLUSH is handled below.
+     * This extends the course's single-writer model, not concurrent isolation. */
+    private void recordPendingIndexPage(DBPage page) {
+        if (page.getDBFile().getType() != DBFileType.BTREE_TUPLE_FILE ||
+            !page.hasUnloggedChanges()) return;
+        if (!SessionState.get().getTransactionState().isTxnInProgress())
+            throw new IllegalStateException("Index mutation outside an active transaction");
+        recordPageUpdate(page);
+    }
+
+    @Override
+    public void beforeLastPageUnpinned(DBPage page) {recordPendingIndexPage(page);}
+
     @Override
     public void beforeWriteDirtyPages(List<DBPage> pages) {
         LogSequenceNumber latest = null;
         for (DBPage page : pages) {
             DBFileType type = page.getDBFile().getType();
-            // HW7 logs heap files. BTree indexes are disabled by default;
-            // WAL/state/test files have no transactional pageLSN either.
-            if (type != DBFileType.HEAP_TUPLE_FILE) continue;
+            if (type != DBFileType.HEAP_TUPLE_FILE && type != DBFileType.BTREE_TUPLE_FILE)
+                continue;
+            // FLUSH can explicitly request pinned pages before commit.
+            if (type == DBFileType.BTREE_TUPLE_FILE && page.hasUnloggedChanges()) {
+                if (!page.isPinned()) throw new IllegalStateException("Unlogged index page reached eviction");
+                recordPendingIndexPage(page);
+            }
             LogSequenceNumber pageLSN = page.getPageLSN();
             if (pageLSN == null)
                 throw new IllegalStateException("Dirty data page has no WAL LSN: " +

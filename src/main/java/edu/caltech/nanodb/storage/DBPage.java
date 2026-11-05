@@ -98,6 +98,9 @@ public class DBPage implements Pinnable, AutoCloseable {
      */
     private byte[] oldPageData;
 
+    private long mutationVersion;
+    private long loggedVersion;
+
 
     /**
      * Constructs a new, empty table-page for the specified table file.
@@ -263,8 +266,13 @@ public class DBPage implements Pinnable, AutoCloseable {
             throw new IllegalStateException("No old page data to sync");
 
         System.arraycopy(pageData, 0, oldPageData, 0, pageData.length);
+        loggedVersion = mutationVersion;
     }
 
+    /** True when bytes changed since the last WAL snapshot. */
+    public boolean hasUnloggedChanges() {
+        return dirty && mutationVersion != loggedVersion;
+    }
 
     /**
      * Returns true if the page's data has been changed in memory; false
@@ -284,6 +292,7 @@ public class DBPage implements Pinnable, AutoCloseable {
      *        otherwise
      */
     public void setDirty(boolean dirty) {
+        if (dirty) mutationVersion++;
         if (!this.dirty && dirty) {
             // Page is being changed from clean to dirty.  Duplicate the current
             // data so that we have it when updating the write-ahead log.

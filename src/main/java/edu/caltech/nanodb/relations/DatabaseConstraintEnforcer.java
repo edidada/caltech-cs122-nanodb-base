@@ -319,8 +319,30 @@ public class DatabaseConstraintEnforcer implements RowEventListener {
      * @return {@code true} if the candidate-key value appears in the table,
      *         {@code false} otherwise.
      */
+    /** null means no matching index; preserve the scan fallback and SQL NULL equality. */
+    private Boolean indexedValueExists(TableInfo table,int[] columns,Tuple tuple,int[] tupleColumns) {
+        if (server.getStorageManager().getIndexManager() == null) return null;
+        for (int column : tupleColumns) if (tuple.isNullValue(column)) return false;
+        for (IndexColumnRefs definition : table.getSchema().getIndexes()) {
+            if (!java.util.Arrays.equals(definition.getCols(),columns)) continue;
+            TupleLiteral key = new TupleLiteral();
+            for (int column : tupleColumns) key.addValue(tuple.getColumnValue(column));
+            edu.caltech.nanodb.storage.TupleFile index = server.getStorageManager().getIndexManager()
+                .openIndex(table,definition.getIndexName()).getTupleFile();
+            edu.caltech.nanodb.storage.PageTuple found =
+                edu.caltech.nanodb.indexes.IndexUtils.findTupleInIndex(key,index);
+            if (found == null) return false;
+            try {return true;}
+            finally {found.unpin();}
+        }
+        return null;
+    }
+
     private boolean hasCandidateKeyValue(TableInfo tableInfo,
         KeyColumnRefs candidateKey, Tuple tuple) {
+
+        Boolean indexed = indexedValueExists(tableInfo,candidateKey.getCols(),tuple,candidateKey.getCols());
+        if (indexed != null) return indexed;
 
         // Build a subquery expression to evaluate against this tuple,
         // to see if the table has the specified key-value.
@@ -356,6 +378,9 @@ public class DatabaseConstraintEnforcer implements RowEventListener {
 
         String referencedTableName = foreignKey.getRefTable();
         TableInfo referencedTableInfo = tableManager.openTable(referencedTableName);
+
+        Boolean indexed = indexedValueExists(referencedTableInfo,foreignKey.getRefCols(),tuple,foreignKey.getCols());
+        if (indexed != null) return indexed;
 
         // Build a subquery expression to evaluate against this tuple,
         // to see if the table has the specified key-value.

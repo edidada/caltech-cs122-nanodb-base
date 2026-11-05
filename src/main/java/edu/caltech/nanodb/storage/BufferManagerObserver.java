@@ -20,4 +20,8 @@ public interface BufferManagerObserver {
      *        be written back to disk
      */
     void beforeWriteDirtyPages(List<DBPage> pages);
+
+    /** Called while the last pin still protects a page from eviction. */
+    default void beforeLastPageUnpinned(DBPage page) { }
+
 }
