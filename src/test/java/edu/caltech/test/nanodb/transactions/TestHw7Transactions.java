@@ -48,10 +48,12 @@ public class TestHw7Transactions {
         finally {Assert.assertTrue(database.shutdown());}
         database=start(directory);
         try {
-            values(database,"1:10","3:30");
+            // Check the first post-restart allocation before a SELECT can
+            // consume an autocommit ID and hide reuse of the previous ID.
             sql(database,"BEGIN;");
             Assert.assertTrue(SessionState.get().getTransactionState().getTransactionID()>lastTransactionID,
                 "Restart reused a transaction ID");
+            values(database,"1:10","3:30");
             sql(database,"COMMIT;");
         }
         finally {Assert.assertTrue(database.shutdown());}
