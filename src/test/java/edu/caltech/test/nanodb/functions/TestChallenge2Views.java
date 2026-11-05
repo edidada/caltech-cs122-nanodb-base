@@ -25,6 +25,8 @@ public class TestChallenge2Views {
             sql(server,"CREATE VIEW revenue(supplier_no,total_revenue) AS SELECT supplier,SUM(amount) FROM sales GROUP BY supplier");
             Assert.assertEquals(((Number)sql(server,"SELECT MAX(total_revenue) FROM revenue").getTuples().get(0).getColumnValue(0)).intValue(),30);
             sql(server,"CREATE VIEW nested AS SELECT * FROM revenue");
+            Assert.assertEquals(server.getStorageManager().getTableManager().getTables(),
+                new java.util.HashSet<String>(java.util.Arrays.asList("sales")),"View definition files must not appear as physical tables");
             sql(server,"INSERT INTO sales VALUES(2,50)");
             Assert.assertEquals(((Number)sql(server,"SELECT MAX(total_revenue) FROM nested").getTuples().get(0).getColumnValue(0)).intValue(),55);
         }finally{Assert.assertTrue(server.shutdown());}
@@ -36,6 +38,26 @@ public class TestChallenge2Views {
             Assert.assertTrue(server.doCommand("SELECT * FROM revenue",true).failed());
             Assert.assertTrue(server.doCommand("DROP VIEW revenue",true).failed());
             Assert.assertFalse(Files.exists(directory.resolve("revenue.view")));
+        }finally{Assert.assertTrue(server.shutdown());}
+    }
+    public void testCorruptAndCyclicDefinitionFailuresDoNotLeakExpansionState() throws Exception {
+        Path directory=Files.createTempDirectory("challenge2-view-corruption-");NanoDBServer server=start(directory);
+        try {
+            sql(server,"CREATE TABLE base_rows(k INTEGER)");sql(server,"INSERT INTO base_rows VALUES(7)");
+            sql(server,"CREATE VIEW first_view AS SELECT * FROM base_rows");
+            sql(server,"CREATE VIEW second_view AS SELECT * FROM first_view");
+            java.util.Properties corrupt=new java.util.Properties();
+            corrupt.setProperty("sql","SELECT * FROM second_view");corrupt.setProperty("columns","");
+            try(java.io.OutputStream file=Files.newOutputStream(directory.resolve("first_view.view"))){corrupt.store(file,"explicit cycle fixture");}
+            Assert.assertTrue(server.doCommand("SELECT * FROM first_view",true).failed());
+            Assert.assertTrue(server.doCommand("SELECT * FROM second_view",true).failed());
+            sql(server,"DROP VIEW first_view");
+            sql(server,"CREATE VIEW first_view AS SELECT * FROM base_rows");
+            Assert.assertEquals(((Number)sql(server,"SELECT k FROM second_view").getTuples().get(0).getColumnValue(0)).intValue(),7);
+            Files.writeString(directory.resolve("first_view.view"),"columns=k");
+            Assert.assertTrue(server.doCommand("SELECT * FROM first_view",true).failed());
+            sql(server,"DROP VIEW first_view");sql(server,"CREATE VIEW first_view AS SELECT * FROM base_rows");
+            Assert.assertEquals(sql(server,"SELECT * FROM second_view").getTuples().size(),1);
         }finally{Assert.assertTrue(server.shutdown());}
     }
     public void testInvalidDefinitionsAndTableNameCollision() throws Exception {

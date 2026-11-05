@@ -59,10 +59,18 @@ final class ViewManager {
         if(exists(name)||storage.getTableManager().tableExists(name))throw new ExecutionException("Relation already exists: "+name);
         parse(sql,columns); // Reject invalid references before creating a file.
         Properties definition=new Properties();definition.setProperty("sql",sql);definition.setProperty("columns",String.join(",",columns));
-        try(OutputStream output=Files.newOutputStream(path(name),StandardOpenOption.CREATE_NEW,StandardOpenOption.WRITE)) {
-            definition.store(output,"NanoDB read-only SQL view");
+        boolean created=false;
+        try {
+            OutputStream opened=Files.newOutputStream(path(name),StandardOpenOption.CREATE_NEW,StandardOpenOption.WRITE);
+            created=true;
+            try(OutputStream output=opened){definition.store(output,"NanoDB read-only SQL view");}
         }
-        catch(IOException error){throw new ExecutionException("Cannot create view "+name,error);}
+        catch(IOException error) {
+            // Only remove the file if this invocation created it. Never erase
+            // a pre-existing definition when CREATE_NEW rejects a collision.
+            if(created)try{Files.deleteIfExists(path(name));}catch(IOException cleanup){error.addSuppressed(cleanup);}
+            throw new ExecutionException("Cannot create view "+name,error);
+        }
     }
     void drop(String name,boolean ifExists) {
         try{if(!Files.deleteIfExists(path(name))&&!ifExists)throw new ExecutionException("View does not exist: "+name);}

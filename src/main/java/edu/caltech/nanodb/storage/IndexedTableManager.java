@@ -61,7 +61,8 @@ public class IndexedTableManager implements TableManager {
         for(File dbFile : fileManager.getDBFiles()) {
             // Note that in getTableFileName all we do is add a .tbl at the end,
             // so that's all we have to account for.
-            tableNames.add(dbFile.getName().replaceAll("\\.tbl$", ""));
+            if (dbFile.isFile() && dbFile.getName().endsWith(".tbl"))
+                tableNames.add(dbFile.getName().substring(0,dbFile.getName().length()-4));
         }
         return tableNames;
     }
