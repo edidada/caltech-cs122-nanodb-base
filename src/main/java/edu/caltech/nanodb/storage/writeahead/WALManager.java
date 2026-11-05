@@ -342,7 +342,10 @@ public class WALManager {
                     // Include the trailing type byte, consumed below.
                     LogSequenceNumber pageLSN = new LogSequenceNumber(currLSN,
                         walReader.getPosition() + 1 - currLSN.getFileOffset());
-                    page.setPageLSN(pageLSN);page.syncOldPageData();
+                    page.setPageLSN(pageLSN);
+                    // A legal zero-segment record leaves an already clean page
+                    // unchanged; it has no old-page buffer to synchronize.
+                    if (page.isDirty()) page.syncOldPageData();
                 }
                 finally {page.unpin();}
                 break;
