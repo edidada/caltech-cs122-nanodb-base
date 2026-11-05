@@ -8,7 +8,7 @@ permissions:
 jobs:
   tpch:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v5
@@ -31,6 +31,12 @@ jobs:
         run: gradle --no-daemon -PtestGroups=framework,parser,hw1,hw2,hw3,hw4,hw5,hw6,hw7,challenge1,challenge2 test
       - name: Official full stores regression
         run: python scripts/hw4_experiments.py --updated-expression-costs
+      - name: Install independent pinned oracle
+        run: python -m pip install duckdb==1.4.1
+      - name: Prepare and verify full-feature SF0.01 baseline
+        run: python scripts/challenge1.py
+      - name: Attempt all 22 queries with isolated timeouts
+        run: python scripts/challenge2_matrix.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -43,3 +49,5 @@ jobs:
             target/challenge1/execution.log
             target/challenge1/inputs/oracle.json
             target/challenge2/queries/
+            target/challenge2/matrix.json
+            target/challenge2/q*/
