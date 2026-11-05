@@ -416,6 +416,11 @@ public class TransactionManager implements BufferManagerObserver {
             buffer.writeDBFile(file,firstPage,lastPage,true);
         }
         // Publish the durable recovery boundary only AFTER all WAL fsyncs.
+        // Under the assignment's atomic-sector assumption for txnstate, a
+        // crash before publication retains the old valid WAL prefix; after
+        // publication every byte of the new prefix is already synced. Pages
+        // may have been flushed out of order, but recovery ignores all bytes
+        // beyond this published end, so a partial future suffix is harmless.
         LogSequenceNumber previous = txnStateNextLSN;
         txnStateNextLSN = end;
         try {storeTxnStateToFile();}

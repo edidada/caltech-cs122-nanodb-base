@@ -26,18 +26,28 @@ public class TestHw7Transactions {
             actual.add(row.getColumnValue(0)+":"+row.getColumnValue(1));
         Assert.assertEquals(actual,Arrays.asList(expected));
     }
+    private void assertForceDoesNotWrite(NanoDBServer database) {
+        long before=edu.caltech.nanodb.server.performance.PerformanceCounters.get(
+            edu.caltech.nanodb.server.performance.PerformanceCounters.STORAGE_PAGES_WRITTEN);
+        database.getStorageManager().getTransactionManager().forceWAL();
+        database.getStorageManager().getTransactionManager().forceWAL();
+        Assert.assertEquals(edu.caltech.nanodb.server.performance.PerformanceCounters.get(
+            edu.caltech.nanodb.server.performance.PerformanceCounters.STORAGE_PAGES_WRITTEN),before,
+            "Unchanged forceWAL wrote WAL or transaction-state pages");
+    }
     public void testUnchangedForceDoesNotWritePages() throws Exception {
         Path directory=Files.createTempDirectory("nanodb-hw7-noop-");
         NanoDBServer database=start(directory);
         try {
-            long before=edu.caltech.nanodb.server.performance.PerformanceCounters.get(
-                edu.caltech.nanodb.server.performance.PerformanceCounters.STORAGE_PAGES_WRITTEN);
-            database.getStorageManager().getTransactionManager().forceWAL();
-            database.getStorageManager().getTransactionManager().forceWAL();
-            Assert.assertEquals(edu.caltech.nanodb.server.performance.PerformanceCounters.get(
-                edu.caltech.nanodb.server.performance.PerformanceCounters.STORAGE_PAGES_WRITTEN),before,
-                "Unchanged forceWAL wrote WAL or transaction-state pages");
+            assertForceDoesNotWrite(database); // Empty log.
+            sql(database,"CREATE TABLE durable_rows(id INTEGER,v INTEGER);");
+            sql(database,"INSERT INTO durable_rows VALUES(5,50);"); // Autocommit.
+            sql(database,"INSERT INTO durable_rows VALUES(6,60);");
+            assertForceDoesNotWrite(database); // Committed nonempty log.
         }
+        finally {Assert.assertTrue(database.shutdown());}
+        database=start(directory);
+        try {values(database,"5:50","6:60");}
         finally {Assert.assertTrue(database.shutdown());}
     }
     public void testCommitRollbackAndRestartWithRealLogging() throws Exception {
