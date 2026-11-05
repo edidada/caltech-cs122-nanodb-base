@@ -375,7 +375,12 @@ public class TransactionManager implements BufferManagerObserver {
             Math.addExact(lsn.getFileOffset(),lsn.getRecordSize()));
         if (txnStateNextLSN == null)
             throw new IllegalStateException("Transaction state not initialized");
-        if (end.compareTo(txnStateNextLSN) <= 0) return;
+        if (end.compareTo(txnStateNextLSN) <= 0) {
+            // Recovery can advance firstLSN without appending WAL. Persist its
+            // checkpoint even when the durable end boundary is unchanged.
+            storeTxnStateToFile();
+            return;
+        }
         if (end.compareTo(walManager.getNextLSN()) > 0)
             throw new IllegalArgumentException("Cannot force beyond generated WAL: " + end);
         BufferManager buffer = storageManager.getBufferManager();

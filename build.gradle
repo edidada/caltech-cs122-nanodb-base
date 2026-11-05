@@ -42,4 +42,5 @@ tasks.named('test') {
         includeGroups providers.gradleProperty('testGroups').getOrElse('framework,parser,hw1,hw2,hw5,hw6').split(',')
     }
     systemProperty 'log4j.configurationFile', file('log4j2.properties').absolutePath
+    doFirst { systemProperty 'nanodb.test.classpath', sourceSets.test.runtimeClasspath.asPath }
 }

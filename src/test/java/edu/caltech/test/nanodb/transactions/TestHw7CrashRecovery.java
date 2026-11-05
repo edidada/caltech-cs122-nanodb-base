@@ -41,7 +41,8 @@ public class TestHw7CrashRecovery {
         Path directory=Files.createTempDirectory("nanodb-hw7-crash-"+mode+"-");
         Path log=directory.resolve("child-output.txt");
         String executable=Paths.get(System.getProperty("java.home"),"bin","java").toString();
-        String classpath=System.getProperty("surefire.test.class.path",System.getProperty("java.class.path"));
+        String classpath=System.getProperty("nanodb.test.classpath",
+            System.getProperty("surefire.test.class.path",System.getProperty("java.class.path")));
         Process child=new ProcessBuilder(executable,"-cp",classpath,getClass().getName(),directory.toString(),mode)
             .redirectErrorStream(true).redirectOutput(log.toFile()).start();
         try {
