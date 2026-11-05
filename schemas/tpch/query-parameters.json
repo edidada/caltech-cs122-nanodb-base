@@ -1,0 +1,174 @@
+{
+  "scale": 0.01,
+  "description": "Fixed reproducible functional-query parameters for this self-study run; not a TPC-certified random stream. Q11 factor 0.0001/SF=0.01.",
+  "queries": {
+    "1": {
+      "parameters": {
+        "1": "90"
+      },
+      "stream": "0"
+    },
+    "2": {
+      "parameters": {
+        "1": "15",
+        "2": "BRASS",
+        "3": "EUROPE"
+      },
+      "stream": "0"
+    },
+    "3": {
+      "parameters": {
+        "1": "BUILDING",
+        "2": "1995-03-15"
+      },
+      "stream": "0"
+    },
+    "4": {
+      "parameters": {
+        "1": "1993-07-01"
+      },
+      "stream": "0"
+    },
+    "5": {
+      "parameters": {
+        "1": "ASIA",
+        "2": "1994-01-01"
+      },
+      "stream": "0"
+    },
+    "6": {
+      "parameters": {
+        "1": "1994-01-01",
+        "2": "0.06",
+        "3": "24"
+      },
+      "stream": "0"
+    },
+    "7": {
+      "parameters": {
+        "1": "FRANCE",
+        "2": "GERMANY"
+      },
+      "stream": "0"
+    },
+    "8": {
+      "parameters": {
+        "1": "BRAZIL",
+        "2": "AMERICA",
+        "3": "ECONOMY ANODIZED STEEL"
+      },
+      "stream": "0"
+    },
+    "9": {
+      "parameters": {
+        "1": "green"
+      },
+      "stream": "0"
+    },
+    "10": {
+      "parameters": {
+        "1": "1993-10-01"
+      },
+      "stream": "0"
+    },
+    "11": {
+      "parameters": {
+        "1": "GERMANY",
+        "2": "0.01"
+      },
+      "stream": "0"
+    },
+    "12": {
+      "parameters": {
+        "1": "MAIL",
+        "2": "SHIP",
+        "3": "1994-01-01"
+      },
+      "stream": "0"
+    },
+    "13": {
+      "parameters": {
+        "1": "special",
+        "2": "requests"
+      },
+      "stream": "0"
+    },
+    "14": {
+      "parameters": {
+        "1": "1995-09-01"
+      },
+      "stream": "0"
+    },
+    "15": {
+      "parameters": {
+        "1": "1996-01-01"
+      },
+      "stream": "0"
+    },
+    "16": {
+      "parameters": {
+        "1": "Brand#45",
+        "2": "MEDIUM POLISHED",
+        "3": "49",
+        "4": "14",
+        "5": "23",
+        "6": "45",
+        "7": "19",
+        "8": "3",
+        "9": "36",
+        "10": "9"
+      },
+      "stream": "0"
+    },
+    "17": {
+      "parameters": {
+        "1": "Brand#23",
+        "2": "MED BOX"
+      },
+      "stream": "0"
+    },
+    "18": {
+      "parameters": {
+        "1": "300"
+      },
+      "stream": "0"
+    },
+    "19": {
+      "parameters": {
+        "1": "Brand#12",
+        "2": "Brand#23",
+        "3": "Brand#34",
+        "4": "1",
+        "5": "10",
+        "6": "20"
+      },
+      "stream": "0"
+    },
+    "20": {
+      "parameters": {
+        "1": "forest",
+        "2": "1994-01-01",
+        "3": "CANADA"
+      },
+      "stream": "0"
+    },
+    "21": {
+      "parameters": {
+        "1": "SAUDI ARABIA"
+      },
+      "stream": "0"
+    },
+    "22": {
+      "parameters": {
+        "1": "13",
+        "2": "31",
+        "3": "23",
+        "4": "29",
+        "5": "30",
+        "6": "18",
+        "7": "17"
+      },
+      "stream": "0"
+    }
+  }
+}

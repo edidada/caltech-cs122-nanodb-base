@@ -19,7 +19,9 @@ jobs:
         with:
           python-version: '3.12'
       - name: Verify original query template provenance
-        run: python scripts/verify_tpch_queries.py
+        run: |
+          python scripts/verify_tpch_queries.py
+          python scripts/instantiate_tpch_queries.py
       - name: Maven all labs and index transaction integration
         run: mvn -B -Dnanodb.test.groups=framework,parser,hw1,hw2,hw3,hw4,hw5,hw6,hw7,challenge1,challenge2 verify
       - uses: gradle/actions/setup-gradle@v4
@@ -40,3 +42,4 @@ jobs:
             target/challenge1/results.json
             target/challenge1/execution.log
             target/challenge1/inputs/oracle.json
+            target/challenge2/queries/
