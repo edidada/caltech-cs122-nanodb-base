@@ -1,0 +1,28 @@
+{
+  "run_url": "https://github.com/edidada/caltech-cs122-nanodb-base/actions/runs/42013125329",
+  "code_commit": "722a0cc253216f0a4eb056bc0fd2c250e7e74a75",
+  "overall_run_conclusion": "success",
+  "experiment": "6000 INTEGER+CHAR(128) rows; 8192-byte pages; actual leaf scan and VERIFY",
+  "results": [
+    {
+      "pattern": "ascending",
+      "rows": 6000,
+      "leaves": 102,
+      "usedBytes": 798000,
+      "capacityBytes": 835584,
+      "meanFill": 0.95502068,
+      "minFill": 0.63317871,
+      "maxFill": 0.99035645
+    },
+    {
+      "pattern": "odd-then-even",
+      "rows": 6000,
+      "leaves": 103,
+      "usedBytes": 798000,
+      "capacityBytes": 843776,
+      "meanFill": 0.94574863,
+      "minFill": 0.5032959,
+      "maxFill": 0.99035645
+    }
+  ]
+}

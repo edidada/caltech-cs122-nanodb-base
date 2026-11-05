@@ -410,12 +410,14 @@ public class LeafPageOperations {
             if (adjPage == leftSibling) {
                 adjPage.moveTuplesRight(leaf, tuplesToMove);
                 index = parent.getIndexOfPointer(adjPage.getPageNo());
-                parent.replaceTuple(index, leaf.getTuple(0));
+                innerPageOps.replaceTuple(parent,new java.util.ArrayList<>(pagePath.subList(0,pagePath.size()-1)),
+                    parent.getPointer(index),TupleLiteral.fromTuple(leaf.getTuple(0)),parent.getPointer(index+1));
             }
             else { // adjPage == right sibling
                 adjPage.moveTuplesLeft(leaf, tuplesToMove);
                 index = parent.getIndexOfPointer(leaf.getPageNo());
-                parent.replaceTuple(index, adjPage.getTuple(0));
+                innerPageOps.replaceTuple(parent,new java.util.ArrayList<>(pagePath.subList(0,pagePath.size()-1)),
+                    parent.getPointer(index),TupleLiteral.fromTuple(adjPage.getTuple(0)),parent.getPointer(index+1));
             }
         }
     }

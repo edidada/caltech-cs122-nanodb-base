@@ -401,7 +401,8 @@ public class InnerPageOperations {
 
         // TODO:  SEE IF WE CAN SIMPLIFY THIS AT ALL...
         if (leftSibling != null &&
-            leftSibling.getUsedSpace() + page.getSpaceUsedByEntries() <
+            leftSibling.getUsedSpace() + page.getSpaceUsedByEntries() +
+            PageTuple.getTupleStorageSize(tupleFile.getSchema(),parentPage.getKey(indexInParentPage - 1)) <=
             leftSibling.getTotalSpace()) {
 
             // Coalesce the current node into the left sibling.
@@ -434,7 +435,8 @@ public class InnerPageOperations {
                 /* delete right key */ false);
         }
         else if (rightSibling != null &&
-                rightSibling.getUsedSpace() + page.getSpaceUsedByEntries() <
+                rightSibling.getUsedSpace() + page.getSpaceUsedByEntries() +
+                PageTuple.getTupleStorageSize(tupleFile.getSchema(),parentPage.getKey(indexInParentPage)) <=
                         rightSibling.getTotalSpace()) {
 
             // Coalesce the current node into the right sibling.
@@ -541,12 +543,14 @@ public class InnerPageOperations {
                     (adjPage == leftSibling ? "left" : "right"), adjPage.getPageNo()));
 
             if (adjPage == leftSibling) {
-                adjPage.movePointersRight(page, entriesToMove, parentKey);
-                parentPage.replaceTuple(indexInParentPage - 1, page.getKey(0));
+                TupleLiteral separator = adjPage.movePointersRight(page, entriesToMove, parentKey);
+                replaceTuple(parentPage,new java.util.ArrayList<>(pagePath.subList(0,pagePath.size()-1)),
+                    adjPage.getPageNo(),separator,page.getPageNo());
             }
             else { // adjPage == right sibling
-                adjPage.movePointersLeft(page, entriesToMove, parentKey);
-                parentPage.replaceTuple(indexInParentPage, adjPage.getKey(0));
+                TupleLiteral separator = adjPage.movePointersLeft(page, entriesToMove, parentKey);
+                replaceTuple(parentPage,new java.util.ArrayList<>(pagePath.subList(0,pagePath.size()-1)),
+                    page.getPageNo(),separator,adjPage.getPageNo());
             }
         }
     }
@@ -907,62 +911,26 @@ public class InnerPageOperations {
     private int tryNonLeafRelocateToFill(InnerPage page, InnerPage adjPage,
                                          boolean movingRight, int parentKeySize) {
 
-        int adjKeys = adjPage.getNumKeys();
-        int pageBytesFree = page.getFreeSpace();
-        int adjBytesFree = adjPage.getFreeSpace();
-
-        // Should be the same for both page and adjPage.
-        int halfFull = page.getTotalSpace() / 2;
-
-        // The parent key always has to move into this page, so if that
-        // won't fit, don't even try.
-        if (pageBytesFree < parentKeySize)
-            return 0;
-
-        pageBytesFree -= parentKeySize;
-
-        int keyBytesMoved = 0;
-        int lastKeySize = parentKeySize;
-
-        int numRelocated = 0;
-        while (true) {
-            // If the key we wanted to move into this page overflows the free
-            // space in this page, back it up.
-            // TODO:  IS THIS NECESSARY?
-            if (pageBytesFree < keyBytesMoved + 2 * numRelocated) {
-                numRelocated--;
-                break;
-            }
-
-            // Figure out the index of the key we need the size of, based on the
-            // direction we are moving values.  If we are moving values right,
-            // we need to look at the keys starting at the rightmost one.  If we
-            // are moving values left, we need to start with the leftmost key.
-            int index;
-            if (movingRight)
-                index = adjKeys - numRelocated - 1;
-            else
-                index = numRelocated;
-
-            keyBytesMoved += lastKeySize;
-
-            lastKeySize = adjPage.getKey(index).getSize();
-            logger.debug("Key " + index + " is " + lastKeySize + " bytes");
-
-            numRelocated++;
-
-            // Since we don't yet know which page the new pointer will go into,
-            // stop when we can put the pointer in either page.
-            if (adjBytesFree <= halfFull &&
-                (pageBytesFree + keyBytesMoved + 2 * numRelocated) <= halfFull) {
-                break;
-            }
+        int best = 0, bestDifference = Integer.MAX_VALUE;
+        int sourceKeys = adjPage.getNumKeys();
+        int movedKeys = 0;
+        // Moving m pointers removes m source keys, one of which is promoted;
+        // only m-1 source keys plus the old parent separator enter the receiver.
+        // Retain at least one pointer in the donor. Enumerate finite candidates
+        // instead of indexing past the final key while seeking half-full pages.
+        for (int count = 1; count <= sourceKeys; count++) {
+            int promotedIndex = movingRight ? sourceKeys - count : count - 1;
+            int promotedSize = adjPage.getKey(promotedIndex).getSize();
+            movedKeys += promotedSize;
+            int released = 2 * count + movedKeys;
+            int received = 2 * count + movedKeys - promotedSize + parentKeySize;
+            int sourceUsed = adjPage.getUsedSpace() - released;
+            int targetUsed = page.getUsedSpace() + received;
+            if (targetUsed > page.getTotalSpace()) continue;
+            if (sourceUsed < adjPage.getTotalSpace()/2 || targetUsed < page.getTotalSpace()/2) continue;
+            int difference = Math.abs(sourceUsed - targetUsed);
+            if (difference < bestDifference) {best=count;bestDifference=difference;}
         }
-
-        logger.debug("Can relocate " + numRelocated +
-                " keys to satisfy minimum space requirements.");
-
-        assert numRelocated >= 0;
-        return numRelocated;
+        return best;
     }
 }

@@ -559,6 +559,7 @@ public class DatabaseConstraintEnforcer implements RowEventListener {
 
         ExistsOperator existsOp = new ExistsOperator(selClause);
 
+        selClause.computeSchema(tableManager,null);
         Planner planner = server.getQueryPlanner();
         PlanNode plan = planner.makePlan(selClause, null);
         existsOp.setSubqueryPlan(plan);

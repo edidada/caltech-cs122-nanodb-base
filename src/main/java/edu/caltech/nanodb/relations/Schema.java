@@ -985,6 +985,18 @@ public class Schema implements Serializable, Iterable<ColumnInfo> {
     }
 */
 
+    /** Remove an ordinary index definition without weakening table constraints.
+     * Physical-file lifetime is managed by IndexManager before this operation. */
+    public void dropIndex(String indexName) {
+        if (indexName == null) throw new IllegalArgumentException("Index name required");
+        IndexColumnRefs definition = indexes.get(indexName);
+        if (definition == null) throw new IllegalArgumentException("No such index: " + indexName);
+        if (definition.getConstraintType() != null)
+            throw new IllegalArgumentException("Cannot drop a constraint-backed index: " + indexName);
+        indexes.remove(indexName);
+    }
+
+
     public void addForeignKey(ForeignKeyColumnRefs fk) {
         foreignKeys.add(fk);
     }
