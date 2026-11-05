@@ -27,6 +27,9 @@ public interface ServerProperties {
      */
     String PROP_PAGECACHE_SIZE = "nanodb.pagecache.size";
 
+    /** Writeback scratch reserved inside the total pool; zero retains legacy mode. */
+    String PROP_PAGECACHE_WRITEBACK_RESERVE = "nanodb.pagecache.writebackReserve";
+
     /**
      * This is the minimum page-cache size allowed.  While it might be fun
      * to allow smaller cache sizes, we should probably make sure that we can

@@ -112,6 +112,9 @@ public class PropertyRegistry implements ServerProperties {
             new IntegerValueValidator(MIN_PAGECACHE_SIZE, MAX_PAGECACHE_SIZE),
             DEFAULT_PAGECACHE_SIZE);
 
+        addProperty(PROP_PAGECACHE_WRITEBACK_RESERVE,
+            new IntegerValueValidator(0,4 * DBFile.MAX_PAGESIZE), 0, /* readonly */ true);
+
         addProperty(PROP_PAGECACHE_POLICY,
             new StringEnumValidator(PAGECACHE_POLICY_VALUES),
             DEFAULT_PAGECACHE_POLICY, /* readonly */ true);

@@ -26,12 +26,12 @@ public final class Challenge1 {
     }
     private static NanoDBServer start(Path directory) throws Exception {
         Properties p=new Properties();p.setProperty("nanodb.baseDirectory",directory.toString());
+        p.setProperty("nanodb.pagecache.writebackReserve","262144");
         p.setProperty("nanodb.pagecache.size","10485760");p.setProperty("nanodb.pagesize","8192");
         p.setProperty("nanodb.flushAfterCmd","false");p.setProperty("nanodb.enableTransactions","true");
         p.setProperty("nanodb.enableIndexes","true");p.setProperty("nanodb.createIndexesOnKeys","true");
         p.setProperty("nanodb.enforceKeyConstraints","true");
         NanoDBServer db=new NanoDBServer();db.startup(p);
-        db.getStorageManager().getBufferManager().setInternalWritebackReserve(262144);
         return db;
     }
     private static String indexReport(NanoDBServer db,TableInfo table,IndexColumnRefs definition,long expected) {
@@ -110,13 +110,14 @@ public final class Challenge1 {
         boolean constraints=db.getPropertyRegistry().getBooleanProperty("nanodb.enforceKeyConstraints");
         boolean flush=db.getPropertyRegistry().getBooleanProperty("nanodb.flushAfterCmd");
         int cache=db.getStorageManager().getBufferManager().getMaxCacheSize();
+        int reserve=db.getStorageManager().getBufferManager().getInternalWritebackReserve();
         BufferManager secondPool=db.getStorageManager().getBufferManager();
         if(!db.shutdown())throw new AssertionError("Validation shutdown failed");
         long peak=Math.max(firstPool.getPeakBytesCached(),secondPool.getPeakBytesCached());
         if(peak>10485760)throw new AssertionError("Pool exceeded strict 10 MiB: "+peak);
         long bytes;try(java.util.stream.Stream<Path> files=Files.walk(directory)){bytes=files.filter(Files::isRegularFile).mapToLong(p->p.toFile().length()).sum();}
         String report=String.format(Locale.ROOT,"{\"scale\":0.01,\"bufferPoolBytes\":%d,\"features\":{\"transactions\":%s,\"indexes\":%s,\"keyConstraints\":%s,\"flushAfterCmd\":%s},\"seconds\":{\"load\":%.6f,\"analyze\":%.6f,\"shutdown\":%.6f,\"restart\":%.6f,\"timedTotal\":%.6f},\"datafilesBytes\":%d,\"tables\":%s,\"customerGroups\":%s}",cache,transactions,indexes,constraints,flush,load,analyze,shutdown,restart,load+analyze+shutdown+restart,bytes,tables,grouping);
-        report=report.substring(0,report.length()-1)+",\"peakPoolBytes\":"+peak+",\"internalWritebackReserveBytes\":262144}";
+        report=report.substring(0,report.length()-1)+",\"peakPoolBytes\":"+peak+",\"internalWritebackReserveBytes\":"+reserve+"}";
         Files.writeString(output.resolve("results.json"),report+"\n");progress.println(report);
     }
 }

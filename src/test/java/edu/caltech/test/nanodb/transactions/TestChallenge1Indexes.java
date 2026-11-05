@@ -18,6 +18,7 @@ public class TestChallenge1Indexes {
         p.setProperty("nanodb.enableTransactions","true");p.setProperty("nanodb.enableIndexes","true");
         p.setProperty("nanodb.createIndexesOnKeys","true");p.setProperty("nanodb.enforceKeyConstraints","true");
         p.setProperty("nanodb.flushAfterCmd","false");
+        p.setProperty("nanodb.pagecache.writebackReserve","262144");
         NanoDBServer db=new NanoDBServer();db.startup(p);return db;
     }
     private static CommandResult sql(NanoDBServer db,String statement) throws Exception {

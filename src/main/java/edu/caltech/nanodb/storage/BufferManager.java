@@ -115,6 +115,7 @@ public class BufferManager {
     }
 
     public long getPeakBytesCached() {synchronized (guard) {return peakBytesCached;}}
+    public int getInternalWritebackReserve() {synchronized (guard) {return internalWritebackReserve;}}
 
 
 
@@ -191,6 +192,8 @@ public class BufferManager {
             new LinkedHashMap<>(16, 0.75f, "LRU".equals(replacementPolicy));
 
         totalBytesCached = 0;
+        setInternalWritebackReserve(propertyRegistry.getIntProperty(
+            ServerProperties.PROP_PAGECACHE_WRITEBACK_RESERVE));
     }
 
 
