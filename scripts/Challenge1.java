@@ -30,7 +30,9 @@ public final class Challenge1 {
         p.setProperty("nanodb.flushAfterCmd","false");p.setProperty("nanodb.enableTransactions","true");
         p.setProperty("nanodb.enableIndexes","true");p.setProperty("nanodb.createIndexesOnKeys","true");
         p.setProperty("nanodb.enforceKeyConstraints","true");
-        NanoDBServer db=new NanoDBServer();db.startup(p);return db;
+        NanoDBServer db=new NanoDBServer();db.startup(p);
+        db.getStorageManager().getBufferManager().setInternalWritebackReserve(262144);
+        return db;
     }
     private static String indexReport(NanoDBServer db,TableInfo table,IndexColumnRefs definition,long expected) {
         TupleFile index=db.getStorageManager().getIndexManager().openIndex(table,definition.getIndexName()).getTupleFile();
@@ -94,6 +96,7 @@ public final class Challenge1 {
         }
         double load=(System.nanoTime()-t)/1e9;t=System.nanoTime();
         command(db,"ANALYZE "+String.join(",",TABLES)+";");double analyze=(System.nanoTime()-t)/1e9;t=System.nanoTime();
+        BufferManager firstPool=db.getStorageManager().getBufferManager();
         if(!db.shutdown())throw new AssertionError("Shutdown failed");double shutdown=(System.nanoTime()-t)/1e9;t=System.nanoTime();
         db=start(directory);double restart=(System.nanoTime()-t)/1e9;
         StringJoiner tables=new StringJoiner(",","[","]");
@@ -107,9 +110,13 @@ public final class Challenge1 {
         boolean constraints=db.getPropertyRegistry().getBooleanProperty("nanodb.enforceKeyConstraints");
         boolean flush=db.getPropertyRegistry().getBooleanProperty("nanodb.flushAfterCmd");
         int cache=db.getStorageManager().getBufferManager().getMaxCacheSize();
+        BufferManager secondPool=db.getStorageManager().getBufferManager();
         if(!db.shutdown())throw new AssertionError("Validation shutdown failed");
+        long peak=Math.max(firstPool.getPeakBytesCached(),secondPool.getPeakBytesCached());
+        if(peak>10485760)throw new AssertionError("Pool exceeded strict 10 MiB: "+peak);
         long bytes;try(java.util.stream.Stream<Path> files=Files.walk(directory)){bytes=files.filter(Files::isRegularFile).mapToLong(p->p.toFile().length()).sum();}
         String report=String.format(Locale.ROOT,"{\"scale\":0.01,\"bufferPoolBytes\":%d,\"features\":{\"transactions\":%s,\"indexes\":%s,\"keyConstraints\":%s,\"flushAfterCmd\":%s},\"seconds\":{\"load\":%.6f,\"analyze\":%.6f,\"shutdown\":%.6f,\"restart\":%.6f,\"timedTotal\":%.6f},\"datafilesBytes\":%d,\"tables\":%s,\"customerGroups\":%s}",cache,transactions,indexes,constraints,flush,load,analyze,shutdown,restart,load+analyze+shutdown+restart,bytes,tables,grouping);
+        report=report.substring(0,report.length()-1)+",\"peakPoolBytes\":"+peak+",\"internalWritebackReserveBytes\":262144}";
         Files.writeString(output.resolve("results.json"),report+"\n");progress.println(report);
     }
 }

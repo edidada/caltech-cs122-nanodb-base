@@ -1,6 +1,6 @@
 """Official CS122 Challenge1 SF0.01, full-feature execution on Actions only."""
 from pathlib import Path
-import csv, decimal, hashlib, json, os, re, subprocess, tarfile, urllib.request
+import csv, decimal, hashlib, json, os, re, ssl, subprocess, tarfile, urllib.error, urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
 TABLES = ['region','nation','part','supplier','partsupp','customer','orders','lineitem']
@@ -14,8 +14,20 @@ def prepare(directory):
     for source in manifest['sources']:
         path=directory/source['url'].rsplit('/',1)[1]
         if not path.exists():
-            with urllib.request.urlopen(source['url'],timeout=90) as response:
-                path.write_bytes(response.read())
+            try:
+                with urllib.request.urlopen(source['url'],timeout=90) as response:
+                    payload=response.read()
+            except urllib.error.URLError as error:
+                # The official course host omits an issuer certificate. Only
+                # these exact pinned public assets permit this transport fallback.
+                if not isinstance(error.reason,ssl.SSLCertVerificationError):
+                    raise
+                assert source['url'].startswith('https://courses.cms.caltech.edu/cs122/assignments/challenge1/')
+                print('Official host certificate-chain failure; pinned SHA256 required:',source['url'])
+                with urllib.request.urlopen(source['url'],context=ssl._create_unverified_context(),timeout=90) as response:
+                    payload=response.read()
+            assert len(payload)==source['bytes'] and digest(payload)==source['sha256'],source['url']
+            path.write_bytes(payload)
         assert path.stat().st_size==source['bytes'] and digest(path.read_bytes())==source['sha256'],path
     schema=(directory/'make-tpch.sql').read_text()
     oracle={'tables':{},'customer_groups':{}}
@@ -57,6 +69,8 @@ def main():
     result=json.loads((output/'results.json').read_text())
     assert result['features']=={'transactions':True,'indexes':True,'keyConstraints':True,'flushAfterCmd':False}
     assert result['bufferPoolBytes']==10485760
+    assert 0 < result['peakPoolBytes'] <= 10485760
+    assert result['internalWritebackReserveBytes']==262144
     assert {table['name'] for table in result['tables']}==set(TABLES)
     for table in result['tables']:
         expected=oracle['tables'][table['name']]

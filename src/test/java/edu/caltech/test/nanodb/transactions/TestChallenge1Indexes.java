@@ -74,6 +74,26 @@ public class TestChallenge1Indexes {
         }finally{Assert.assertTrue(db.shutdown());}
         db=start(directory);try{verify(db,400);}finally{Assert.assertTrue(db.shutdown());}
     }
+    public void testStrictPoolIncludesWritebackScratch() throws Exception {
+        FileManager files=new FileManagerImpl(Files.createTempDirectory("challenge1-strict-pool-").toFile());
+        BufferManager pool=new BufferManager(files,new edu.caltech.nanodb.server.properties.PropertyRegistry());
+        pool.setMaxCacheSize(65536);pool.setInternalWritebackReserve(16384);
+        DBFile heap=files.createDBFile("heap.dat",DBFileType.HEAP_TUPLE_FILE,8192);
+        DBFile wal=files.createDBFile("wal.dat",DBFileType.WRITE_AHEAD_LOG_FILE,8192);
+        pool.addFile(heap);pool.addFile(wal);
+        DBPage data=pool.getPage(heap,1,true);data.writeByte(64,1);data.unpin();
+        DBPage log=pool.getPage(wal,1,true);log.writeByte(64,2);log.unpin();
+        byte[] held=pool.allocBuffer(16384);boolean[] called={false};
+        pool.addObserver(pages -> {
+            if(pages.stream().noneMatch(page -> page.getDBFile().equals(heap)))return;
+            called[0]=true;byte[] temporary=pool.allocBuffer(8192);
+            pool.releaseBuffer(temporary);pool.writeDBFile(wal,true);
+        });
+        byte[] next=pool.allocBuffer(8192);
+        Assert.assertTrue(called[0],"Eviction did not exercise writeback");
+        Assert.assertTrue(pool.getPeakBytesCached()<=65536,"Scratch exceeded total pool budget");
+        pool.releaseBuffer(next);pool.releaseBuffer(held);pool.removeAll();files.closeDBFile(heap);files.closeDBFile(wal);
+    }
     public void testIndexedPrimaryAndForeignConstraints() throws Exception {
         NanoDBServer db=start(Files.createTempDirectory("challenge1-constraints-"));
         try {

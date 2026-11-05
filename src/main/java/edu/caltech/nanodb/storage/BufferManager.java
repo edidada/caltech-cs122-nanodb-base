@@ -101,6 +101,21 @@ public class BufferManager {
      * obey maxCacheSize. All accesses are protected by guard. */
     private static final int WRITEBACK_RESERVE_BYTES = 4 * DBFile.MAX_PAGESIZE;
     private int writebackDepth;
+    private int internalWritebackReserve;
+    private long peakBytesCached;
+
+    /** Reserve scratch INSIDE the configured pool (for strict benchmark budgets). */
+    public void setInternalWritebackReserve(int bytes) {
+        synchronized (guard) {
+            if (bytes < 0 || bytes > WRITEBACK_RESERVE_BYTES || bytes >= maxCacheSize)
+                throw new IllegalArgumentException("Invalid internal writeback reserve " + bytes);
+            internalWritebackReserve = bytes;
+            ensureSpaceAvailable(0);
+        }
+    }
+
+    public long getPeakBytesCached() {synchronized (guard) {return peakBytesCached;}}
+
 
 
     private FileManager fileManager;
@@ -194,6 +209,8 @@ public class BufferManager {
         }
 
         synchronized (guard) {
+            if (maxCacheSize <= internalWritebackReserve)
+                throw new IllegalArgumentException("Pool must exceed its internal writeback reserve");
             this.maxCacheSize = maxCacheSize;
 
             if (maxCacheSize < totalBytesCached) {
@@ -255,8 +272,9 @@ public class BufferManager {
             // A writeback observer must be able to load/write WAL and txnstate
             // without recursively evicting the same pending dirty data pages.
             if (writebackDepth == 0) ensureSpaceAvailable(size);
-            long allocationLimit = (long) maxCacheSize +
-                (writebackDepth == 0 ? 0 : WRITEBACK_RESERVE_BYTES);
+            long allocationLimit = writebackDepth == 0 ?
+                (long) maxCacheSize - internalWritebackReserve :
+                (long) maxCacheSize + (internalWritebackReserve == 0 ? WRITEBACK_RESERVE_BYTES : 0);
             if ((long) totalBytesCached + size > allocationLimit) {
                 throw new IllegalStateException(
                     "Not enough room to allocate a buffer of " + size + " bytes!");
@@ -266,6 +284,7 @@ public class BufferManager {
             // Then update the total bytes in use by the buffer manager.
             byte[] buffer = new byte[size];
             totalBytesCached += size;
+            peakBytesCached = Math.max(peakBytesCached,totalBytesCached);
 
             // Record the identity of the buffer that we allocated, so that
             // releaseBuffer() can verify that it came from the buffer manager.
@@ -594,8 +613,9 @@ public class BufferManager {
      */
     private void ensureSpaceAvailable(int bytesRequired) {
         synchronized (guard) {
+            int ordinaryLimit = maxCacheSize - internalWritebackReserve;
             // If we already have enough space, return without doing anything.
-            if (bytesRequired + totalBytesCached <= maxCacheSize)
+            if (bytesRequired + totalBytesCached <= ordinaryLimit)
                 return;
 
             // We don't currently have enough space in the cache.  Try to
@@ -612,7 +632,7 @@ public class BufferManager {
                     cachedPages.entrySet().iterator();
 
                 while (entries.hasNext() &&
-                    bytesRequired + totalBytesCached > maxCacheSize) {
+                    bytesRequired + totalBytesCached > ordinaryLimit) {
                     Map.Entry<CachedPageInfo, DBPage> entry = entries.next();
 
                     DBPage oldPage = entry.getValue();
@@ -645,7 +665,7 @@ public class BufferManager {
             // If writeback fails they remain valid and available for retry.
             writeAndEvict(dirtyPages);
 
-            if (bytesRequired + totalBytesCached > maxCacheSize)
+            if (bytesRequired + totalBytesCached > ordinaryLimit)
                 logger.warn("Buffer manager is currently using too much space.");
         }
     }
