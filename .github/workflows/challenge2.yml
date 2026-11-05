@@ -18,6 +18,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Verify original query template provenance
+        run: python scripts/verify_tpch_queries.py
       - name: Maven all labs and index transaction integration
         run: mvn -B -Dnanodb.test.groups=framework,parser,hw1,hw2,hw3,hw4,hw5,hw6,hw7,challenge1,challenge2 verify
       - uses: gradle/actions/setup-gradle@v4
