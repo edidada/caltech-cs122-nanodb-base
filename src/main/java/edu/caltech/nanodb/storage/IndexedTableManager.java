@@ -45,6 +45,11 @@ public class IndexedTableManager implements TableManager {
      *
      * @return the name of the file that holds the table's data
      */
+    @Override public boolean viewExists(String name) {return new ViewManager(storageManager).exists(name);}
+    @Override public edu.caltech.nanodb.queryast.SelectClause resolveView(String name) {return new ViewManager(storageManager).resolve(name);}
+    @Override public void createView(String name,String sql,java.util.List<String> columns) {new ViewManager(storageManager).create(name,sql,columns);}
+    @Override public void dropView(String name,boolean ifExists) {new ViewManager(storageManager).drop(name,ifExists);}
+
     private String getTableFileName(String tableName) {
         return tableName + ".tbl";
     }
@@ -77,6 +82,7 @@ public class IndexedTableManager implements TableManager {
     public TableInfo createTable(String tableName, Schema schema,
         CommandProperties properties) {
 
+        if (viewExists(tableName)) throw new IllegalArgumentException("A view already uses name " + tableName);
         int pageSize = storageManager.getServer().getPropertyRegistry().getIntProperty(ServerProperties.PROP_PAGE_SIZE);
         String storageType = "heap";
 

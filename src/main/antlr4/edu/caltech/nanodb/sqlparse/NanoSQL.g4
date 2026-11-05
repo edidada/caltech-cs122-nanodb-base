@@ -20,6 +20,8 @@ command:
 // implementation doesn't have to do anything fancy.
 commandNoSemicolon:
         createTableStmt
+      | createViewStmt
+      | dropViewStmt
       | createIndexStmt
       | dropTableStmt
       | dropIndexStmt
@@ -53,6 +55,12 @@ commandNoSemicolon:
 // The rules for CREATE TABLE commands are somewhat involved since they have
 // many components and different kinds of constraints that can be specified.
 //
+
+createViewStmt:
+    CREATE VIEW viewName=IDENT ('(' columns+=IDENT (',' columns+=IDENT)* ')')? AS selectStmt;
+
+dropViewStmt:
+    DROP VIEW (IF EXISTS)? viewName=IDENT;
 
 createTableStmt:
         CREATE (TEMPORARY)? TABLE (IF NOT EXISTS)? tableName=IDENT '('

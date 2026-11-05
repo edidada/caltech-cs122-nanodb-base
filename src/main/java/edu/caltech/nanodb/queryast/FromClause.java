@@ -701,6 +701,13 @@ public class FromClause {
         case BASE_TABLE:
             logger.debug("Preparing BASE_TABLE from-clause.");
 
+            SelectClause view = tableManager.resolveView(tableName);
+            if (view != null) {
+                derivedTable = view;
+                if (aliasName == null) aliasName = tableName;
+                clauseType = ClauseType.SELECT_SUBQUERY;
+                return computeSchema(tableManager);
+            }
             TableInfo tableInfo = tableManager.openTable(tableName);
             if (tableInfo == null) {
                 throw new SchemaNameException(String.format(

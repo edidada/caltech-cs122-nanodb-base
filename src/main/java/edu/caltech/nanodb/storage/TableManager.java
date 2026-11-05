@@ -18,6 +18,15 @@ public interface TableManager {
      * Returns a set of the names of the tables available.
      * @return a list of table names
      */
+    default boolean viewExists(String name) {return false;}
+    default edu.caltech.nanodb.queryast.SelectClause resolveView(String name) {return null;}
+    default void createView(String name,String sql,java.util.List<String> columns) {
+        throw new UnsupportedOperationException("Views unavailable in this table manager");
+    }
+    default void dropView(String name,boolean ifExists) {
+        throw new UnsupportedOperationException("Views unavailable in this table manager");
+    }
+
     Set<String> getTables();
 
 

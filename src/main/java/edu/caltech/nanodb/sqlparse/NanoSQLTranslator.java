@@ -274,6 +274,23 @@ public class NanoSQLTranslator extends NanoSQLBaseVisitor<Object> {
     }
 
     @Override
+    public Object visitCreateViewStmt(NanoSQLParser.CreateViewStmtContext ctx) {
+        java.util.ArrayList<String> columns=new java.util.ArrayList<>();
+        for (org.antlr.v4.runtime.Token column : ctx.columns)
+            columns.add(column.getText().toLowerCase(java.util.Locale.ROOT));
+        String sql=ctx.selectStmt().start.getInputStream().getText(
+            org.antlr.v4.runtime.misc.Interval.of(ctx.selectStmt().start.getStartIndex(),ctx.selectStmt().stop.getStopIndex()));
+        return new edu.caltech.nanodb.commands.ViewCommand(
+            ctx.viewName.getText().toLowerCase(java.util.Locale.ROOT),sql,columns,false);
+    }
+
+    @Override
+    public Object visitDropViewStmt(NanoSQLParser.DropViewStmtContext ctx) {
+        return new edu.caltech.nanodb.commands.ViewCommand(
+            ctx.viewName.getText().toLowerCase(java.util.Locale.ROOT),null,java.util.Collections.emptyList(),ctx.EXISTS()!=null);
+    }
+
+    @Override
     public Object visitCreateTableStmt(NanoSQLParser.CreateTableStmtContext ctx) {
         String tableName = ctx.tableName.getText().toLowerCase();
         boolean temporary = (ctx.TEMPORARY() != null);
