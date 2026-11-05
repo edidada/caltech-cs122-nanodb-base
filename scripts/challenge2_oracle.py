@@ -46,14 +46,16 @@ def build(inputs,path):
 def query(database,sql,output):
     import duckdb
     result={'engine':'duckdb','version':duckdb.__version__,'status':'failure'}
-    con=duckdb.connect(str(database));rows=None
+    con=duckdb.connect(str(database));rows=None;numeric_columns=None
     try:
         for statement in statements(sql.read_text()):
             cursor=con.execute(statement)
             if statement.lstrip().lower().startswith('select'):
+                numeric_types={'TINYINT','SMALLINT','INTEGER','BIGINT','HUGEINT','UTINYINT','USMALLINT','UINTEGER','UBIGINT','UHUGEINT','FLOAT','DOUBLE','DECIMAL','BIGNUM'}
+                numeric_columns=[str(column[1]).split('(')[0] in numeric_types for column in cursor.description]
                 rows=[[canonical(v) for v in row] for row in cursor.fetchall()]
         assert rows is not None
-        result.update(status='executed',rows=rows)
+        result.update(status='executed',rows=rows,numeric_columns=numeric_columns)
     except Exception as error:result['error']=repr(error)
     finally:con.close()
     output.write_text(json.dumps(result,indent=2)+'\n')

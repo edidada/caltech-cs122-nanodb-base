@@ -52,15 +52,17 @@ def main():
         record['oracle_execution']=oracle['status']
         if record['status']=='executed' and oracle['status']=='executed':
             expected=oracle['rows']
-            def equal_value(actual,wanted):
+            numeric_columns=oracle['numeric_columns']
+            def equal_value(actual,wanted,numeric):
                 if actual is None or wanted is None:return actual is wanted
+                if not numeric:return actual==wanted
                 try:
                     left=decimal.Decimal(actual);right=decimal.Decimal(wanted)
                     return abs(left-right)<=max(decimal.Decimal('0.00001'),abs(right)*decimal.Decimal('0.0000001'))
-                except decimal.InvalidOperation:return actual==wanted
+                except decimal.InvalidOperation:return False
             # Ordered comparison is deliberately conservative: ties may cause
             # a false mismatch, but never silently discard duplicate rows.
-            match=len(values)==len(expected) and all(len(a)==len(b) and all(equal_value(x,y) for x,y in zip(a,b)) for a,b in zip(values,expected))
+            match=len(values)==len(expected) and all(len(a)==len(b) and len(a)==len(numeric_columns) and all(equal_value(x,y,numeric) for x,y,numeric in zip(a,b,numeric_columns)) for a,b in zip(values,expected))
             record['oracle_status']='match' if match else 'mismatch'
             record['oracle_rows']=len(expected)
         else:record['oracle_status']='not_comparable'
