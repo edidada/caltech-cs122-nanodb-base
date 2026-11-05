@@ -984,12 +984,15 @@ public class DBPage implements Pinnable, AutoCloseable {
         byte[] data = intValue.toByteArray();
         if (data.length > 15) {
             throw new IllegalArgumentException("Cannot handle BigDecimals " +
-                "with data encoding length > 255 bytes; is " + data.length);
+                "with data encoding length > 15 bytes; is " + data.length);
         }
         else if (data.length < 15) {
             // The array is not 15 bytes, so create a version of the array
             // that is 15 bytes.
             byte[] data15 = new byte[15];
+            // BigInteger is signed two's-complement, so widening negative
+            // values requires sign extension rather than zero padding.
+            if (intValue.signum() < 0) Arrays.fill(data15,(byte) 0xFF);
             System.arraycopy(data, 0, data15, 15 - data.length, data.length);
             data = data15;
         }
