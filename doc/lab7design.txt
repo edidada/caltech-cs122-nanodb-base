@@ -65,9 +65,9 @@ Answer A4: WAL pages and txnstate pages are intentionally not WAL-logged.
 Heap data, heap header and HW1 free-space root/leaf pages have log calls.
 BTree writes are not yet comprehensively instrumented in this branch;
 turning transactions on for arbitrary indexed workloads is not verified.
-The callback currently refuses any non-log/state dirty page lacking LSN,
-so this gap cannot be treated as a successful logged write. TEST_FILE is
-also not silently ignored. Full file-type compatibility remains pending.
+The callback enforces pageLSN only for heap files. WAL/state/test files
+are nontransactional; BTree indexes are disabled in HW7 defaults. Opting
+into BTree indexes does not add transactional logging to that format.
 
 B:  The txnstate.dat File
 -------------------------
@@ -131,12 +131,14 @@ C1:  Did you run into any fun, surprising or crazy bugs while you were
      debugging your transaction-processing code?  (It's OK if your answer
      is "no," although Donnie will be dubious...)
 
-Answer C1: No HW7 execution results are available yet. Static inspection
-identified the need to include recordSize, retain exact previous-file ends
-rather than padded file sizes, and skip compensated original updates via
-per-transaction undoNext. These are implementation findings, not reproduced
-runtime bugs. Enabled transaction and subprocess Runtime.halt tests are
-prepared; normal restart tests are not labelled crash-during-recovery tests.
+Answer C1: Actions 42015127871 caught checked WALFileException uses on
+storage APIs that do not declare checked exceptions; validation now uses
+DataFormatException. Run 42015255513 executed 264 tests and found three
+restart failures: zero-segment redo left a page clean, so it had no old-page
+buffer to synchronize. Guarding syncOldPageData with isDirty fixed those
+failures. Run 42016106554 then passed 264 tests in both build tools, including
+actual Runtime.halt redo/undo. Cross-file/default tests are a later run;
+normal repeat restart is not labelled a crash-during-recovery test.
 
 D:  Extra Credit [OPTIONAL]
 ---------------------------

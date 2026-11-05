@@ -96,6 +96,12 @@ public class BufferManager {
      */
     private final Object guard = new Object();
 
+    /** Bounded scratch space for WAL/txnstate work needed to evict data.
+     * Only observer writeback may use it; ordinary cache allocations still
+     * obey maxCacheSize. All accesses are protected by guard. */
+    private static final int WRITEBACK_RESERVE_BYTES = 4 * DBFile.MAX_PAGESIZE;
+    private int writebackDepth;
+
 
     private FileManager fileManager;
 
@@ -246,9 +252,12 @@ public class BufferManager {
                     totalBytesCached);
             }
 
-            ensureSpaceAvailable(size);
-
-            if (totalBytesCached + size > maxCacheSize) {
+            // A writeback observer must be able to load/write WAL and txnstate
+            // without recursively evicting the same pending dirty data pages.
+            if (writebackDepth == 0) ensureSpaceAvailable(size);
+            long allocationLimit = (long) maxCacheSize +
+                (writebackDepth == 0 ? 0 : WRITEBACK_RESERVE_BYTES);
+            if ((long) totalBytesCached + size > allocationLimit) {
                 throw new IllegalStateException(
                     "Not enough room to allocate a buffer of " + size + " bytes!");
             }
@@ -596,7 +605,9 @@ public class BufferManager {
                         "    Evicting page [%s,%d] from page-cache to make room.",
                         oldPage.getDBFile(), oldPage.getPageNo()));
 
-                    entries.remove();
+                    // Dirty pages must remain discoverable until WAL forcing
+                    // completes. Removing WAL pages here would hide them from
+                    // a nested writeDBFile call in the eviction observer.
 
                     // If the page is dirty, we need to write its data to disk before
                     // invalidating it.  Otherwise, just invalidate it.
@@ -605,13 +616,19 @@ public class BufferManager {
                         dirtyPages.add(oldPage);
                     }
                     else {
+                        entries.remove();
                         oldPage.invalidate();
                     }
                 }
             }
 
-            // If we have any dirty data pages, they need to be flushed to disk.
-            writeDirtyPages(dirtyPages, /* invalidate */ true);
+            // Keep the selected dirty pages cached while observers enforce WAL.
+            // If writeback fails they remain valid and available for retry.
+            writeDirtyPages(dirtyPages, /* invalidate */ false);
+            for (DBPage page : dirtyPages) {
+                cachedPages.remove(new CachedPageInfo(page.getDBFile(), page.getPageNo()), page);
+                page.invalidate();
+            }
 
             if (bytesRequired + totalBytesCached > maxCacheSize)
                 logger.warn("Buffer manager is currently using too much space.");
@@ -629,26 +646,20 @@ public class BufferManager {
      *        must be reloaded from disk
      */
     private void writeDirtyPages(List<DBPage> dirtyPages, boolean invalidate) {
-        if (!dirtyPages.isEmpty()) {
-            // Pass the observers a read-only version of the pages so they
-            // can't change things.
-            List<DBPage> readOnlyPages =
-                Collections.unmodifiableList(dirtyPages);
-
+        if (dirtyPages.isEmpty()) return;
+        writebackDepth++;
+        try {
+            List<DBPage> readOnlyPages = Collections.unmodifiableList(dirtyPages);
             for (BufferManagerObserver obs : observers)
                 obs.beforeWriteDirtyPages(readOnlyPages);
-
-            // Finally, we can write out each dirty page.
             for (DBPage dbPage : dirtyPages) {
                 fileManager.savePage(dbPage.getDBFile(), dbPage.getPageNo(),
                                      dbPage.getPageData());
-
                 dbPage.setDirty(false);
-
-                if (invalidate)
-                    dbPage.invalidate();
+                if (invalidate) dbPage.invalidate();
             }
         }
+        finally {writebackDepth--;}
     }
 
 

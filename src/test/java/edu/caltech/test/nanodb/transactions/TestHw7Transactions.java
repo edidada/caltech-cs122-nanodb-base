@@ -29,6 +29,7 @@ public class TestHw7Transactions {
     public void testCommitRollbackAndRestartWithRealLogging() throws Exception {
         Path directory=Files.createTempDirectory("nanodb-hw7-transactions-");
         NanoDBServer database=start(directory);
+        int lastTransactionID;
         try {
             sql(database,"CREATE TABLE durable_rows(id INTEGER,v INTEGER);");
             sql(database,"BEGIN;");sql(database,"INSERT INTO durable_rows VALUES(1,10);");sql(database,"COMMIT;");
@@ -39,10 +40,20 @@ public class TestHw7Transactions {
             values(database);sql(database,"ROLLBACK;");values(database,"1:10");
             sql(database,"BEGIN;");sql(database,"INSERT INTO durable_rows VALUES(3,30);");sql(database,"COMMIT;");
             values(database,"1:10","3:30");
+            sql(database,"BEGIN;");
+            lastTransactionID=SessionState.get().getTransactionState().getTransactionID();
+            Assert.assertTrue(lastTransactionID>0);
+            sql(database,"ROLLBACK;"); // Read-only transaction still consumes an ID.
         }
         finally {Assert.assertTrue(database.shutdown());}
         database=start(directory);
-        try {values(database,"1:10","3:30");}
+        try {
+            values(database,"1:10","3:30");
+            sql(database,"BEGIN;");
+            Assert.assertTrue(SessionState.get().getTransactionState().getTransactionID()>lastTransactionID,
+                "Restart reused a transaction ID");
+            sql(database,"COMMIT;");
+        }
         finally {Assert.assertTrue(database.shutdown());}
     }
 }
