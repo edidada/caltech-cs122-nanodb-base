@@ -41,7 +41,17 @@ public class CaseOperator extends Expression {
             if(matches){chosen=results.get(i);break;}
         }
         Object value=chosen.evaluate(env);
-        return value==null||resultType==null||resultType.getBaseType()==SQLDataType.NULL?value:TypeConverter.coerceTo(value,resultType);
+        if(value==null||resultType==null)return value;
+        // CASE is an expression, not assignment into a storage column. The
+        // framework's default VARCHAR(1)/NUMERIC(scale=0) metadata must not
+        // truncate selected strings or round decimal expression results.
+        switch(resultType.getBaseType()) {
+            case NUMERIC:return TypeConverter.getBigDecimalValue(value);
+            case DOUBLE:return TypeConverter.getDoubleValue(value);
+            case FLOAT:return TypeConverter.getFloatValue(value);
+            case BIGINT:return TypeConverter.getLongValue(value);
+            default:return value;
+        }
     }
     @Override public Expression simplify(){return this;}
     @Override public Expression traverse(ExpressionProcessor processor) {
@@ -51,7 +61,9 @@ public class CaseOperator extends Expression {
             conditions.set(i,conditions.get(i).traverse(processor));
             results.set(i,results.get(i).traverse(processor));
         }
-        fallback=fallback.traverse(processor);resultType=null;
+        fallback=fallback.traverse(processor);
+        // Symbol visitors and planner rewrites preserve expression semantics;
+        // retain the declared result type until getColumnInfo recomputes it.
         return processor.leave(this);
     }
     @Override protected Object clone() throws CloneNotSupportedException {
@@ -59,7 +71,7 @@ public class CaseOperator extends Expression {
         copy.conditions=new ArrayList<>();copy.results=new ArrayList<>();
         for(Expression expression:conditions)copy.conditions.add(expression.duplicate());
         for(Expression expression:results)copy.results.add(expression.duplicate());
-        copy.fallback=fallback.duplicate();copy.resultType=null;return copy;
+        copy.fallback=fallback.duplicate();return copy;
     }
     @Override public boolean equals(Object obj) {
         if(!(obj instanceof CaseOperator))return false;CaseOperator other=(CaseOperator)obj;
