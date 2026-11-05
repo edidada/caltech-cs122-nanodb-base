@@ -624,11 +624,7 @@ public class BufferManager {
 
             // Keep the selected dirty pages cached while observers enforce WAL.
             // If writeback fails they remain valid and available for retry.
-            writeDirtyPages(dirtyPages, /* invalidate */ false);
-            for (DBPage page : dirtyPages) {
-                cachedPages.remove(new CachedPageInfo(page.getDBFile(), page.getPageNo()), page);
-                page.invalidate();
-            }
+            writeAndEvict(dirtyPages);
 
             if (bytesRequired + totalBytesCached > maxCacheSize)
                 logger.warn("Buffer manager is currently using too much space.");
@@ -645,6 +641,14 @@ public class BufferManager {
      * @param invalidate if true then the dirty pages are invalidated so they
      *        must be reloaded from disk
      */
+    private void writeAndEvict(List<DBPage> pages) {
+        writeDirtyPages(pages, /* invalidate */ false);
+        for (DBPage page : pages) {
+            cachedPages.remove(new CachedPageInfo(page.getDBFile(), page.getPageNo()), page);
+            page.invalidate();
+        }
+    }
+
     private void writeDirtyPages(List<DBPage> dirtyPages, boolean invalidate) {
         if (dirtyPages.isEmpty()) return;
         writebackDepth++;
@@ -823,8 +827,7 @@ public class BufferManager {
                         "    Evicting page [%s,%d] from page-cache.",
                         oldPage.getDBFile(), oldPage.getPageNo()));
 
-                    // Remove the page from the cache.
-                    entries.remove();
+                    // Retain dirty pages until the WAL observer completes.
 
                     // NOTE:  We don't modify totalBytesCached here, because
                     // that value is updated when the DBPage's page-buffers
@@ -837,12 +840,13 @@ public class BufferManager {
                         dirtyPages.add(oldPage);
                     }
                     else {
+                        entries.remove();
                         oldPage.invalidate();
                     }
                 }
             }
 
-            writeDirtyPages(dirtyPages, /* invalidate */ true);
+            writeAndEvict(dirtyPages);
         }
     }
 
@@ -875,8 +879,7 @@ public class BufferManager {
                     "    Evicting page [%s,%d] from page-cache.",
                     oldPage.getDBFile(), oldPage.getPageNo()));
 
-                // Remove the page from the cache.
-                entries.remove();
+                // Retain dirty pages until the WAL observer completes.
 
                 // NOTE:  We don't modify totalBytesCached here, because that
                 // value is updated when the DBPage's page-buffers are
@@ -889,11 +892,19 @@ public class BufferManager {
                     dirtyPages.add(oldPage);
                 }
                 else {
+                    entries.remove();
                     oldPage.invalidate();
                 }
             }
 
-            writeDirtyPages(dirtyPages, /* invalidate */ true);
+            writeAndEvict(dirtyPages);
+            // WAL forcing may have loaded clean txnstate/WAL pages. Evict
+            // these too, without discarding any new dirty observer output.
+            entries = cachedPages.entrySet().iterator();
+            while (entries.hasNext()) {
+                DBPage page = entries.next().getValue();
+                if (!page.isDirty()) {entries.remove();page.invalidate();}
+            }
         }
     }
 
