@@ -25,7 +25,7 @@ def instantiate(output):
         if limit>=0:
             assert text.rstrip().endswith(';')
             text=text.rstrip()[:-1]+f'\nLIMIT {limit};\n'
-        target=output/f'q{n:02}.sql';target.write_text(text,encoding='utf-8')
+        target=output/f'q{n:02}.sql';target.write_bytes(text.encode('utf-8'))
         manifest['queries'].append({'query':n,'file':target.name,'source_sha256':entry['sha256'],'sql_sha256':hashlib.sha256(text.encode()).hexdigest(),'row_limit':limit,'parameters':p,'status':'instantiated_only_not_executed'})
     (output/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
     return manifest
