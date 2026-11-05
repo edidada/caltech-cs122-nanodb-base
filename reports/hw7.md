@@ -1,37 +1,25 @@
-# CS122 HW7：预写日志（实现进行中）
+# CS122 HW7：预写日志（继续实现）
 
-从 HW6 尚未验收提交 `ce6fe3539cd647040086ff07d4f044596af118ed` 建立 `edidada/hw7`；不是已完成实验。官方题目与本地 doc/lab7design.txt 要求事务原子性、WAL强制落盘、恢复和设计分析。继承的HW6也仍需独立最终CI，不能用HW7替代验收。
+依据 Caltech Winter2019 官方 Lab7，独立分支 `edidada/hw7` 与 `.github/workflows/hw7.yml`，JDK17 Maven/Gradle。HW6已独立验收；本实验仍未完成验收。所有 Java 编译、测试和实验只在 GitHub Actions 执行。
 
-本次实现 beforeWriteDirtyPages：跳过日志和txnstate文件，检查每个待写数据页pageLSN，缺失时明确拒绝写出；取该批最大LSN，只调用一次forceWAL，调用成功后才允许BufferManager继续写数据页。当前forceWAL仍是占位，因此这只是已连接的调用顺序，**不代表已经满足WAL持久化规则**，事务默认仍未开启。
+## 已验证基线
 
-独立hw7.yml准备JDK17 Maven/Gradle、framework/parser/HW1～HW7及完整数据回归。本地没有编译或运行实验；工作流未取得通过证据。
+代码 `862eea868cf19987cdd2564b586152af8ac19154` 的 [Actions 42016106554](https://github.com/edidada/caltech-cs122-nanodb-base/actions/runs/42016106554) 完整成功：两套各264项，零失败、零错误、零跳过，完整 stores-28K 13查询哈希与前置实验一致。真实XML包含提交/回滚/重启、Runtime.halt后已提交日志redo、强制刷出未提交数据后的undo三项。子进程退出码73绕过正常关闭，两次启动核对完整有序行。它验证了单日志文件基本路径，没有证明跨文件、恢复中再崩溃或并发。
 
-剩余必需项：核对官方Lab7完整要求；实现forceWAL的记录末尾计算、跨日志文件同步和txnstate持久化顺序；补全WALManager的redo/undo、日志文件切换、回滚记录与事务链后退；审查事务启动/提交/回滚与缓冲页记录时机；真正开启事务并验证提交、回滚、进程崩溃恢复和重启事务ID；完成全部设计题。当前实现对无LSN数据页采取失败策略，TEST_FILE等非业务格式是否应排除须按实际日志覆盖明确决定，不能因测试便利静默放行未记录的业务数据页。
+## 实现
 
-HW6运行41863122155仍queued，未重启；整个课程目标未完成，不增加验收条数。
+heap 数据、元数据及空闲空间树的变化写WAL；日志生成后同步旧镜像。缓冲写出前对heap脏页的最大pageLSN强制日志，缺失LSN报错。非事务格式WAL/state/test和未支持WAL的BTree不参与该规则；HW7默认关闭索引，不能声称BTree事务一致性。
 
-forceWAL第一阶段实现（未验证）：用记录偏移+recordSize计算排他末尾，拒绝超过已生成日志，按文件及页范围writeDBFile(sync=true)，最后才持久化txnstate.nextLSN；持久化异常恢复内存中的旧边界。恰好切换到下一文件首记录时无需打开尚未创建的新文件。当前LSN比较器按文件号排序，65535→0回绕尚未支持；跨线程原子性/缓冲锁顺序也未证明，不能据此宣称并发或崩溃持久化已验收。事务默认仍关闭；redo/undo和日志切换仍有占位。
+forceWAL 按记录末尾计算排他边界，逐日志文件同步后才持久化txnstate.nextLSN；发布失败恢复内存边界。恢复后仅firstLSN前移时也保存状态。日志旋转在下一文件头记录上一文件的精确逻辑末尾。
 
-显式ROLLBACK事务链实现（未执行）：检查记录事务ID与类型，START终止，UPDATE读取前一LSN及页面修改前字节、恢复页面并生成redo-only补偿记录；补偿链接指向undo-next，更新会话lastLSN、pageLSN和页面旧镜像，再沿原previous继续。redo-only直接沿链跳过，拒绝不后退的链或非预期记录。最后写ABORT。编号回绕尚未支持；启动恢复performRedo/performUndo仍未实现，不能把显式回滚实现当作崩溃恢复完成。
+显式回滚沿事务previous链，普通更新应用undo并写redo-only补偿，补偿链接指向undo-next，最后ABORT。redo按原始顺序重放更新及补偿，跟踪未完成事务；undo按物理反向遍历和每事务undo-next跳过已补偿记录，写补偿及ABORT。reader在finally释放，段范围、事务链、记录尾部均有校验。合法零分段redo不会尝试同步干净页不存在的旧镜像。
 
-启动redo扫描实现（未执行）：识别START/COMMIT/ABORT/UPDATE/redo-only，累计事务最大ID和未完成事务；重放UPDATE/补偿数据到页面、更新pageLSN和旧镜像，校验尾部起始偏移与类型字节，推进排他下一LSN，完成事务从集合移除。重放采取重复写入绝对字节方式，不跳过可能缺少持久pageLSN的页。恢复undo仍占位，异常关闭reader及日志截断防护仍需补强；该阶段不构成恢复验收。
+## 本轮补齐，待远端验证
 
-恢复undo第一阶段实现（未执行）：保留物理日志逆序扫描，并为每个未提交事务单独维护undoNext游标；只处理游标命中的记录，redo-only沿其链接跳过已补偿的原始更新，UPDATE恢复旧字节并写补偿，START写ABORT并移除未完成事务。恢复范围耗尽但仍有未完成事务时明确报错，不把部分回滚当成功。reader正常结束关闭，异常finally仍需统一补齐。尚无崩溃重复恢复证据。
+按官方Step1改运行时默认：enableTransactions=true、flushAfterCmd=false。官方说明HW7可关闭索引，因此本分支enableIndexes/createIndexesOnKeys=false。历史HW1～HW6 SQL/直接存储测试及stores实验显式保留事务关闭、索引开启和命令后刷盘配置；其断言、负载和数量不删减。专用HW7测试不覆盖事务/刷盘/索引设置，直接验证默认启动，避免默认值改了但测试仍只强制启用旧配置。
 
-日志切换实现（未执行）：三种记录写入共用advanceNextLSN，达到文件阈值时立即创建下一日志头并存前一文件的精确记录末尾（不使用含页填充的物理文件长度）。forceWAL在排他边界恰好为下一文件首记录时也同步存在的头页，保证反向扫描可读取前一文件末尾。首个新日志的previous-end为0。编号回绕和异常清理仍待处理，未声称日志切换通过。
+新增真实跨10 MiB生产阈值的两项崩溃用例：7000行、每行1600字符，断言第二个WAL文件存在。已提交模式不主动刷数据页后halt，重启逐条核对7000个id和完整payload；未提交模式强制数据落盘后halt，重启应撤销全部7000行并保留先前提交的两行。两者都再正常关闭重启核对。没有修改日志大小来绕过边界，也不以仅行数替代数据核对。
 
-新增真实事务测试（未执行）：显式nanodb.enableTransactions=true并断言TransactionManager存在，启用每命令flush，在普通heap表执行INSERT提交、UPDATE+INSERT回滚、DELETE回滚、再次提交，检查事务内/回滚后的完整有序结果，并关闭重启再次检查持久值。普通列heap表用于独立验证WAL，不等于声明BTree索引事务已通过。尚缺强杀进程、跨文件和恢复中再崩溃测试。
+## 仍需核验的边界
 
-异常清理补齐（静态检查，未执行）：performRedo、performUndo和显式rollback的reader生命周期统一使用try/finally；解码、页面加载、撤销或写补偿失败时也关闭reader，释放其当前缓存页引用。正常完成和异常路径不重复依赖末尾close。已实际下载官方Lab7说明44293字节用于要求核对，文件仅缓存在.git。
-
-官方要求复核：heap数据页、元数据及HW1空闲空间树的修改已有logDBPageWrite调用。applyRedo/applyUndo现拒绝零长或超出页面范围的日志分段，在写页前报告WALFileException；不把损坏日志产生的越界写当作普通存储错误。此项只保护分段范围，尚不能替代截断记录、坏尾部与全记录预验证测试。默认事务开启与flush-after-command关闭仍未全局切换，当前仅专用测试显式开启，官方配置要求未完成。
-
-新增独立JVM崩溃恢复测试（未执行）：子进程显式开启事务、关闭flushAfterCmd，提交两行后Runtime.halt(73)绕过shutdown/finally，验证无数据页flush的redo；另一模式先修改/插入未提交数据并writeAll(true)强制脏页落盘再halt，验证WAL规则和undo。父进程检查退出码及90秒超时、保存子进程输出，重启两次核对完整有序结果。第二次为正常恢复后再启动的幂等检查，不冒充“恢复中再次崩溃”；该更强故障注入仍未实现。仅准备代码，本地未执行。
-
-设计题doc/lab7design.txt已补A1～A4、B1～B4和C1，分别解释WAL前缀发布顺序、页写出规则、事务ID与firstLSN低水位、普通/模糊检查点差别；并明确当前未证明的并发/回绕、BTree日志覆盖和配置缺项，不将理论论证写成实测通过。
-
-已合并 HW6 通过261项的代码与报告提交70ab1b9，避免沿用旧分裂/删除缺陷。静态修正恢复后仅 firstLSN 前移而 WAL end 不变时仍持久化事务状态；Gradle 显式传测试运行时 classpath 给崩溃子进程。上述 HW7 改动尚待独立远端验证，不因 HW6 成功记为验收。
-
-首轮远端42015127871编译失败：新格式校验抛出了受检WALFileException，却沿用无throws的存储接口。改用既有DataFormatException（StorageException子类），保留损坏检测及原异常接口；未修改WALFileException类型。等待新的远端编译与测试。
-
-运行42015255513实际264项、3失败、零跳过，三个新事务用例都在重启redo时遇到No old page data to sync。零分段日志不会修改干净页，故仅在page.isDirty时同步旧镜像；保留零分段合法记录与原全部负载，待新SHA复验。
+本轮默认配置与跨文件测试尚待完整CI。设计题A1～A4、B1～B4、C1已填写；forceWAL并发锁顺序、文件号65535→0回绕、恢复过程中再次崩溃、截断/损坏记录的完整预验证仍有边界，不能仅据基线绿灯声明全部原子性。DDL不支持回滚，BTree索引事务未实现。学校私有grader未执行。

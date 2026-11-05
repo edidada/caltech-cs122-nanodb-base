@@ -44,6 +44,11 @@ public class TestIndexedHeap {
         props.setProperty("nanodb.baseDirectory", dir.toString());
         props.setProperty("nanodb.pagecache.size", Integer.toString(cache));
         props.setProperty("nanodb.flushAfterCmd", "true");
+        // Preserve the pre-WAL assignment configuration for this regression.
+        props.setProperty("nanodb.enableTransactions","false");
+        props.setProperty("nanodb.enableIndexes","true");
+        props.setProperty("nanodb.createIndexesOnKeys","true");
+        props.setProperty("nanodb.flushAfterCmd","true");
         NanoDBServer server = new NanoDBServer();
         server.startup(props);
         return server;

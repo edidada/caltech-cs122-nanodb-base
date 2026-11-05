@@ -39,7 +39,7 @@ tasks.named('compileJava') { dependsOn 'generateParser' }
 tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8'; options.release = 17 }
 tasks.named('test') {
     useTestNG {
-        includeGroups providers.gradleProperty('testGroups').getOrElse('framework,parser,hw1,hw2,hw5,hw6').split(',')
+        includeGroups providers.gradleProperty('testGroups').getOrElse('framework,parser,hw1,hw2,hw3,hw4,hw5,hw6,hw7').split(',')
     }
     systemProperty 'log4j.configurationFile', file('log4j2.properties').absolutePath
     doFirst { systemProperty 'nanodb.test.classpath', sourceSets.test.runtimeClasspath.asPath }

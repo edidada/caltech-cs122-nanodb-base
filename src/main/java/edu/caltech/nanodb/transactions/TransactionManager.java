@@ -345,8 +345,9 @@ public class TransactionManager implements BufferManagerObserver {
         LogSequenceNumber latest = null;
         for (DBPage page : pages) {
             DBFileType type = page.getDBFile().getType();
-            if (type == DBFileType.WRITE_AHEAD_LOG_FILE || type == DBFileType.TXNSTATE_FILE)
-                continue;
+            // HW7 logs heap files. BTree indexes are disabled by default;
+            // WAL/state/test files have no transactional pageLSN either.
+            if (type != DBFileType.HEAP_TUPLE_FILE) continue;
             LogSequenceNumber pageLSN = page.getPageLSN();
             if (pageLSN == null)
                 throw new IllegalStateException("Dirty data page has no WAL LSN: " +

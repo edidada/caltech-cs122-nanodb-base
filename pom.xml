@@ -15,7 +15,7 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>17</maven.compiler.release>
-        <nanodb.test.groups>framework,parser,hw1,hw2,hw5,hw6</nanodb.test.groups>
+        <nanodb.test.groups>framework,parser,hw1,hw2,hw3,hw4,hw5,hw6,hw7</nanodb.test.groups>
         <antlr4.visitor>true</antlr4.visitor>
         <antlr4.listener>true</antlr4.listener>
     </properties>

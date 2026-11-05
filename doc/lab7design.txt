@@ -29,12 +29,13 @@ A2:  Another task was to implement the beforeWriteDirtyPages() method on the
      logging rule is always followed.  What steps do you take to ensure this
      will always happen?  Describe your method's approach.
 
-Answer A2 (unverified): The eviction callback skips WRITE_AHEAD_LOG_FILE
-and TXNSTATE_FILE, rejects every other dirty page without pageLSN, finds
-the maximum LSN of the batch and forces once before returning. Any force
-failure propagates, preventing the caller from continuing the data-page
-write. Excluding log/state files prevents recursive WAL forcing. TEST_FILE
-policy remains strict rather than silently exempting an unlogged data page.
+Answer A2: The callback enforces WAL on HEAP_TUPLE_FILE dirty pages, rejects
+heap pages missing pageLSN, and forces the maximum batch LSN before writing.
+Force failure propagates and prevents data writes. WAL/state/test formats
+are nontransactional; BTree has no WAL implementation and is disabled in
+HW7 defaults, as permitted by the assignment. This is not a claim of
+transactional BTree support. The prior single-file crash tests passed;
+default configuration and real cross-file tests await the new CI run.
 
 A3:  Actually, if you think about it, NanoDB writes to data pages before it
      emits WAL records describing the changes to those pages.  At a higher level
@@ -51,8 +52,9 @@ is synchronized. Pages remain pinned during mutation/log generation. Before
 BufferManager writes any dirty page, its observer forces the associated WAL
 prefix. COMMIT also forces its record before completing. In-memory writes
 may therefore precede WAL construction, but durable data writes must not.
-The required default transaction-on/flush-after-command-off configuration
-and complete runtime proof are still pending.
+Runtime defaults now enable transactions and disable flush-after-command.
+Dedicated HW7 tests use these defaults; historical HW1-6 regressions retain
+their explicit pre-WAL configuration. Complete runtime proof is pending.
 
 A4:  In your current implementation, some pages may not have corresponding
      LSNs associated with them, because they are not logged in the write-ahead

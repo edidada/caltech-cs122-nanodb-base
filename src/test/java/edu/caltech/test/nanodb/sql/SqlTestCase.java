@@ -92,6 +92,11 @@ public class SqlTestCase {
         props.setProperty(ServerProperties.PROP_BASE_DIRECTORY,
             testBaseDir.getAbsolutePath());
 
+        // Preserve the pre-WAL assignment configuration for this regression.
+        props.setProperty("nanodb.enableTransactions","false");
+        props.setProperty("nanodb.enableIndexes","true");
+        props.setProperty("nanodb.createIndexesOnKeys","true");
+        props.setProperty("nanodb.flushAfterCmd","true");
         server.startup(props);
 
         // Run the initialization SQL, if it has been specified.

@@ -13,8 +13,6 @@ public class TestHw7Transactions {
     private NanoDBServer start(Path directory) throws Exception {
         Properties configuration=new Properties();
         configuration.setProperty("nanodb.baseDirectory",directory.toString());
-        configuration.setProperty(ServerProperties.PROP_ENABLE_TRANSACTIONS,"true");
-        configuration.setProperty("nanodb.flushAfterCmd","true");
         NanoDBServer database=new NanoDBServer();database.startup(configuration);
         Assert.assertNotNull(database.getStorageManager().getTransactionManager());return database;
     }

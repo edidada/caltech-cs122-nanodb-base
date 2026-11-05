@@ -11,12 +11,16 @@ import edu.caltech.nanodb.server.properties.ServerProperties;
 /** Separate JVMs halt without shutdown hooks to exercise actual recovery paths. */
 @Test(groups={"hw7"})
 public class TestHw7CrashRecovery {
+    private static final int ROTATION_ROWS=7000;
+    private static final String PAYLOAD="wal-boundary-"+"x".repeat(1587);
     private static NanoDBServer start(Path directory) throws Exception {
         Properties configuration=new Properties();
         configuration.setProperty("nanodb.baseDirectory",directory.toString());
-        configuration.setProperty(ServerProperties.PROP_ENABLE_TRANSACTIONS,"true");
-        configuration.setProperty("nanodb.flushAfterCmd","false");
-        NanoDBServer database=new NanoDBServer();database.startup(configuration);return database;
+        NanoDBServer database=new NanoDBServer();database.startup(configuration);
+        Assert.assertNotNull(database.getStorageManager().getTransactionManager());
+        Assert.assertFalse(database.getPropertyRegistry().getBooleanProperty(ServerProperties.PROP_FLUSH_AFTER_CMD));
+        Assert.assertFalse(database.getPropertyRegistry().getBooleanProperty(ServerProperties.PROP_ENABLE_INDEXES));
+        return database;
     }
     private static CommandResult sql(NanoDBServer database,String statement) throws Exception {
         CommandResult result=database.doCommand(statement,true);
@@ -28,6 +32,17 @@ public class TestHw7CrashRecovery {
         sql(database,"CREATE TABLE crash_rows(id INTEGER,v INTEGER);");
         sql(database,"BEGIN;");sql(database,"INSERT INTO crash_rows VALUES(1,10);");
         sql(database,"INSERT INTO crash_rows VALUES(3,30);");sql(database,"COMMIT;");
+        if(arguments[1].startsWith("rotate-")) {
+            sql(database,"CREATE TABLE rotation_rows(id INTEGER,v VARCHAR(1800));");
+            sql(database,"BEGIN;");
+            for(int i=0;i<ROTATION_ROWS;i++)
+                sql(database,"INSERT INTO rotation_rows VALUES("+i+",'"+PAYLOAD+"');");
+            if(arguments[1].equals("rotate-redo")) sql(database,"COMMIT;");
+            else database.getStorageManager().getBufferManager().writeAll(true);
+            // Cross the real production 10 MiB limit, without a test-only size.
+            Assert.assertTrue(Files.exists(Paths.get(arguments[0],
+                edu.caltech.nanodb.storage.writeahead.WALManager.getWALFileName(1))));
+        }
         if(arguments[1].equals("undo")) {
             sql(database,"BEGIN;");sql(database,"UPDATE crash_rows SET v=99 WHERE id=1;");
             sql(database,"INSERT INTO crash_rows VALUES(2,20);");
@@ -46,7 +61,7 @@ public class TestHw7CrashRecovery {
         Process child=new ProcessBuilder(executable,"-cp",classpath,getClass().getName(),directory.toString(),mode)
             .redirectErrorStream(true).redirectOutput(log.toFile()).start();
         try {
-            Assert.assertTrue(child.waitFor(90,TimeUnit.SECONDS),"Crash child timed out: "+log);
+            Assert.assertTrue(child.waitFor(180,TimeUnit.SECONDS),"Crash child timed out: "+log);
             Assert.assertEquals(child.exitValue(),73,Files.readString(log));
         }
         finally {if(child.isAlive())child.destroyForcibly().waitFor();}
@@ -58,10 +73,22 @@ public class TestHw7CrashRecovery {
                 for(edu.caltech.nanodb.expressions.TupleLiteral row:sql(database,"SELECT id,v FROM crash_rows ORDER BY id;").getTuples())
                     rows.add(row.getColumnValue(0)+":"+row.getColumnValue(1));
                 Assert.assertEquals(rows,Arrays.asList("1:10","3:30"),mode+" recovery attempt "+attempt);
+                if(mode.startsWith("rotate-")) {
+                    List<edu.caltech.nanodb.expressions.TupleLiteral> recovered=
+                        sql(database,"SELECT id,v FROM rotation_rows ORDER BY id;").getTuples();
+                    int expected=mode.equals("rotate-redo")?ROTATION_ROWS:0;
+                    Assert.assertEquals(recovered.size(),expected,mode);
+                    for(int i=0;i<expected;i++) {
+                        Assert.assertEquals(recovered.get(i).getColumnValue(0),i);
+                        Assert.assertEquals(recovered.get(i).getColumnValue(1),PAYLOAD);
+                    }
+                }
             }
             finally {Assert.assertTrue(database.shutdown());}
         }
     }
+    public void testCrossFileRedo() throws Exception {crashAndRecover("rotate-redo");}
+    public void testCrossFileUndo() throws Exception {crashAndRecover("rotate-undo");}
     public void testCommittedWALReplaysWithoutDataFlush() throws Exception {crashAndRecover("redo");}
     public void testUncommittedFlushedDataIsUndone() throws Exception {crashAndRecover("undo");}
 }

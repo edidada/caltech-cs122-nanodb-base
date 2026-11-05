@@ -16,6 +16,11 @@ public class TestHw6IndexPersistence {
         Properties properties=new Properties();
         properties.setProperty("nanodb.baseDirectory",directory.toString());
         properties.setProperty("nanodb.flushAfterCmd","true");
+        // Preserve the pre-WAL assignment configuration for this regression.
+        properties.setProperty("nanodb.enableTransactions","false");
+        properties.setProperty("nanodb.enableIndexes","true");
+        properties.setProperty("nanodb.createIndexesOnKeys","true");
+        properties.setProperty("nanodb.flushAfterCmd","true");
         NanoDBServer database=new NanoDBServer();database.startup(properties);return database;
     }
     private void sql(NanoDBServer database,String statement) throws Exception {

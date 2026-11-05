@@ -45,6 +45,11 @@ public final class Hw3Experiments {
         settings.setProperty("nanodb.enforceKeyConstraints","false");
         settings.setProperty("nanodb.flushAfterCmd","true");
         settings.setProperty("nanodb.pagesize","8192");
+        // Preserve the pre-WAL assignment configuration for this regression.
+        settings.setProperty("nanodb.enableTransactions","false");
+        settings.setProperty("nanodb.enableIndexes","true");
+        settings.setProperty("nanodb.createIndexesOnKeys","true");
+        settings.setProperty("nanodb.flushAfterCmd","true");
         NanoDBServer server=new NanoDBServer();server.startup(settings);
         try {
             for(String file:new String[]{"make-stores.sql","stores-28K.sql"}) {
