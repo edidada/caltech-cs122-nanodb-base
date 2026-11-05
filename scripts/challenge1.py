@@ -71,6 +71,7 @@ def main():
     assert result['bufferPoolBytes']==10485760
     assert 0 < result['peakPoolBytes'] <= 10485760
     assert result['internalWritebackReserveBytes']==262144
+    assert result['loadTransactions']==len(TABLES)
     assert {table['name'] for table in result['tables']}==set(TABLES)
     for table in result['tables']:
         expected=oracle['tables'][table['name']]

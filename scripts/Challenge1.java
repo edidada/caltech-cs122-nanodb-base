@@ -87,12 +87,20 @@ public final class Challenge1 {
         PrintStream progress=System.out;System.setOut(SINK);SessionState.get().setOutputStream(SINK);
         long t=System.nanoTime();NanoDBServer db=start(directory);
         for(CommandResult r:db.doCommands(Files.readString(input.resolve("make-tpch.sql")),false))if(r.failed())throw r.getFailure();
+        int loadTransactions=0;
         for(String table:TABLES) {
-            long rows=0;
-            try(BufferedReader reader=Files.newBufferedReader(input.resolve(table+".sql"))) {
-                String sql;while((sql=reader.readLine())!=null)if(!sql.isBlank()){command(db,sql);rows++;}
+            long rows=0;command(db,"BEGIN;");
+            try {
+                try(BufferedReader reader=Files.newBufferedReader(input.resolve(table+".sql"))) {
+                    String sql;while((sql=reader.readLine())!=null)if(!sql.isBlank()){command(db,sql);rows++;}
+                }
+                command(db,"COMMIT;");loadTransactions++;
             }
-            progress.println("Loaded "+table+" rows="+rows);
+            catch(Exception failure) {
+                try {command(db,"ROLLBACK;");}catch(Exception rollback){failure.addSuppressed(rollback);}
+                throw failure;
+            }
+            progress.println("Loaded "+table+" rows="+rows+" (one committed table transaction)");
         }
         double load=(System.nanoTime()-t)/1e9;t=System.nanoTime();
         command(db,"ANALYZE "+String.join(",",TABLES)+";");double analyze=(System.nanoTime()-t)/1e9;t=System.nanoTime();
@@ -117,7 +125,7 @@ public final class Challenge1 {
         if(peak>10485760)throw new AssertionError("Pool exceeded strict 10 MiB: "+peak);
         long bytes;try(java.util.stream.Stream<Path> files=Files.walk(directory)){bytes=files.filter(Files::isRegularFile).mapToLong(p->p.toFile().length()).sum();}
         String report=String.format(Locale.ROOT,"{\"scale\":0.01,\"bufferPoolBytes\":%d,\"features\":{\"transactions\":%s,\"indexes\":%s,\"keyConstraints\":%s,\"flushAfterCmd\":%s},\"seconds\":{\"load\":%.6f,\"analyze\":%.6f,\"shutdown\":%.6f,\"restart\":%.6f,\"timedTotal\":%.6f},\"datafilesBytes\":%d,\"tables\":%s,\"customerGroups\":%s}",cache,transactions,indexes,constraints,flush,load,analyze,shutdown,restart,load+analyze+shutdown+restart,bytes,tables,grouping);
-        report=report.substring(0,report.length()-1)+",\"peakPoolBytes\":"+peak+",\"internalWritebackReserveBytes\":"+reserve+"}";
+        report=report.substring(0,report.length()-1)+",\"peakPoolBytes\":"+peak+",\"internalWritebackReserveBytes\":"+reserve+",\"loadTransactions\":"+loadTransactions+"}";
         Files.writeString(output.resolve("results.json"),report+"\n");progress.println(report);
     }
 }
