@@ -351,6 +351,7 @@ cmdProperties:
 expression:
         literalValue                                        # ExprLiteral
       | columnRef                                           # ExprColumnRef
+      | EXTRACT '(' field=IDENT FROM value=expression ')' # ExprExtract
       | SUBSTRING '(' value=expression FROM start=expression (FOR length=expression)? ')' # ExprSubstring
       | functionCall                                        # ExprFunctionCall
       | op=('+' | '-') expression                           # ExprUnarySign
@@ -379,7 +380,10 @@ literalValue:
       | INT_LITERAL                 # LiteralInteger
       | DECIMAL_LITERAL             # LiteralDecimal
       | STRING_LITERAL              # LiteralString
-      | INTERVAL STRING_LITERAL     # LiteralInterval
+      | TYPE_DATE STRING_LITERAL    # LiteralDate
+      | TYPE_TIME STRING_LITERAL    # LiteralTime
+      | TYPE_TIMESTAMP STRING_LITERAL # LiteralTimestamp
+      | INTERVAL STRING_LITERAL (unit=IDENT ('(' precision=INT_LITERAL ')')?)? # LiteralInterval
       ;
 
 // To keep the parsing simple, we just have four separate subrules for column
@@ -401,4 +405,4 @@ expressionList: '(' (expression (',' expression)*)? ')' ;
 // If a "DISTINCT" modifier is inappropriate for a given kind of function,
 // the code should detect this and complain about it.
 functionCall:
-        functionName=(IDENT | SUBSTRING) '(' (DISTINCT? expression (',' expression)*)? ')' ;
+        functionName=(IDENT | SUBSTRING | EXTRACT) '(' (DISTINCT? expression (',' expression)*)? ')' ;

@@ -54,6 +54,7 @@ public class FunctionDirectory {
         addFunction("SIN", Sin.class);
         addFunction("SQRT", Sqrt.class);
         addFunction("SUBSTRING", Substring.class);
+        addFunction("EXTRACT", Extract.class);
         addFunction("TAN", Tan.class);
 
         addFunction("PERF_COUNTER", ReadPerfCounter.class);

@@ -831,12 +831,39 @@ public class NanoSQLTranslator extends NanoSQLBaseVisitor<Object> {
     }
 
     @Override
+    public Object visitLiteralDate(NanoSQLParser.LiteralDateContext ctx) {
+        String s=ctx.STRING_LITERAL().getText();
+        return java.time.LocalDate.parse(s.substring(1,s.length()-1));
+    }
+
+    @Override
+    public Object visitLiteralTime(NanoSQLParser.LiteralTimeContext ctx) {
+        String s=ctx.STRING_LITERAL().getText();
+        return java.time.LocalTime.parse(s.substring(1,s.length()-1));
+    }
+
+    @Override
+    public Object visitLiteralTimestamp(NanoSQLParser.LiteralTimestampContext ctx) {
+        String s=ctx.STRING_LITERAL().getText();
+        return java.time.LocalDateTime.parse(s.substring(1,s.length()-1).replace(' ','T'));
+    }
+
+    @Override
     public Object visitLiteralInterval(NanoSQLParser.LiteralIntervalContext ctx) {
         // Get the text.  Chop off the quotes at the start/end of the string
         String s = ctx.STRING_LITERAL().getText();
         s = s.substring(1, s.length() - 1);
 
-        // Parse the string into an interval value.
+        // External SQL interval qualifiers are combined with the existing
+        // interval parser; retain the original INTERVAL '3 days' spelling.
+        if (ctx.unit != null) {
+            if (ctx.precision != null) {
+                int precision=Integer.parseInt(ctx.precision.getText());
+                if (precision<1 || precision>9 || !s.matches("[0-9]+") || s.length()>precision)
+                    throw new IllegalArgumentException("Invalid interval leading precision");
+            }
+            s += " " + ctx.unit.getText().toLowerCase(java.util.Locale.ROOT);
+        }
         return DateTimeUtils.parseInterval(s);
     }
 
@@ -916,6 +943,12 @@ public class NanoSQLTranslator extends NanoSQLBaseVisitor<Object> {
     @Override
     public Object visitExprColumnRef(NanoSQLParser.ExprColumnRefContext ctx) {
         return new ColumnValue((ColumnName) visit(ctx.columnRef()));
+    }
+
+    @Override
+    public Object visitExprExtract(NanoSQLParser.ExprExtractContext ctx) {
+        return new FunctionCall("EXTRACT",false,new LiteralValue(ctx.field.getText()),
+            (Expression) visit(ctx.value));
     }
 
     @Override

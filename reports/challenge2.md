@@ -19,3 +19,9 @@
 Actions保存完整矩阵及每查询产物，预留120分钟上限覆盖最坏22条双引擎超时和完整前置回归。当前源码/AST静态检查通过；Java编译、DuckDB加载、查询实际结果均未执行，发布权限限制仍需解决。CASE/EXTRACT/视图及日期/interval语法等功能仍需根据真实矩阵补齐，不能把当前执行框架视为完成Challenge2。
 
 对照器按DuckDB结果元数据标记数值列，仅这些列采用误差比较，电话/前缀/标识字符串精确比较；NULL和重复行仍完整保留。不按字符串能否转换成数字猜测列类型。
+
+## 时间语法与EXTRACT补齐（未验证）
+
+新增DATE/TIME/TIMESTAMP字面量、INTERVAL外部year/month/day等单位及可选整数前导精度，保留原INTERVAL '3 days'写法。EXTRACT支持DATE/TIME/TIMESTAMP的year/month/day/hour/minute/second，second保留纳秒小数；不匹配的字段/类型和未知字段明确拒绝，NULL传播。不是仅对Q7的year硬编码。
+
+新增两项SQL级回归，覆盖闰日、跨年/月份、Q1的90天/精度、日期与时间字段、小数秒、NULL、非法日期及不兼容字段。源码已提交前仅作diff检查，没有本地Java编译或SQL执行。完整22查询矩阵仍需真实Actions反馈；CASE和视图等缺项继续保留。

@@ -131,3 +131,5 @@ TYPE_VARYING    : 'varying' ;   // character varying(length)
 
 SUBSTRING : 'substring' ;
 FOR : 'for' ;
+
+EXTRACT : 'extract' ;
