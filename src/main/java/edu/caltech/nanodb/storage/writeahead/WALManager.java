@@ -332,13 +332,13 @@ public class WALManager {
                 int pageNo = walReader.readUnsignedShort();
                 int segments = walReader.readUnsignedShort();
                 DBFile file = storageManager.openDBFile(filename);
-                if (file == null) throw new WALFileException("Missing redo data file " + filename);
+                if (file == null) throw new DataFormatException("Missing redo data file " + filename);
                 DBPage page = storageManager.loadDBPage(file,pageNo,true);
                 try {
                     applyRedo(type,walReader,page,segments);
                     int storedOffset = walReader.readInt();
                     if (storedOffset != currLSN.getFileOffset())
-                        throw new WALFileException("Invalid redo record start trailer at " + currLSN);
+                        throw new DataFormatException("Invalid redo record start trailer at " + currLSN);
                     // Include the trailing type byte, consumed below.
                     LogSequenceNumber pageLSN = new LogSequenceNumber(currLSN,
                         walReader.getPosition() + 1 - currLSN.getFileOffset());
@@ -347,10 +347,10 @@ public class WALManager {
                 finally {page.unpin();}
                 break;
             default:
-                throw new WALFileException("Unexpected redo record " + type + " at " + currLSN);
+                throw new DataFormatException("Unexpected redo record " + type + " at " + currLSN);
             }
             if (walReader.readByte() != typeID)
-                throw new WALFileException("Mismatched WAL record type trailer at " + currLSN);
+                throw new DataFormatException("Mismatched WAL record type trailer at " + currLSN);
 
             currLSN = computeNextLSN(currLSN.getLogFileNo(), walReader.getPosition());
         }
@@ -520,14 +520,14 @@ public class WALManager {
             case UPDATE_PAGE_REDO_ONLY:
                 LogSequenceNumber previous = new LogSequenceNumber(walReader.readUnsignedShort(),walReader.readInt());
                 if (previous.compareTo(currLSN) >= 0)
-                    throw new WALFileException("Non-decreasing undo chain at " + currLSN);
+                    throw new DataFormatException("Non-decreasing undo chain at " + currLSN);
                 undoNext.put(transactionID,previous);
                 if (type == WALRecordType.UPDATE_PAGE_REDO_ONLY) break;
                 String filename = walReader.readVarString255();
                 int pageNo = walReader.readUnsignedShort();
                 int segments = walReader.readUnsignedShort();
                 DBFile file = storageManager.openDBFile(filename);
-                if (file == null) throw new WALFileException("Missing undo data file " + filename);
+                if (file == null) throw new DataFormatException("Missing undo data file " + filename);
                 DBPage page = storageManager.loadDBPage(file,pageNo,true);
                 try {
                     byte[] changes = applyUndoAndGenRedoOnlyData(walReader,page,segments);
@@ -538,7 +538,7 @@ public class WALManager {
                 finally {page.unpin();}
                 break;
             default:
-                throw new WALFileException("Unexpected incomplete-transaction record " + type + " at " + currLSN);
+                throw new DataFormatException("Unexpected incomplete-transaction record " + type + " at " + currLSN);
             }
         }
 
@@ -546,7 +546,7 @@ public class WALManager {
         finally {if (walReader != null) walReader.close();}
 
         if (recoveryInfo.hasIncompleteTxns())
-            throw new WALFileException("Recovery range ended before all incomplete transactions reached START");
+            throw new DataFormatException("Recovery range ended before all incomplete transactions reached START");
         logger.debug("Undo processing is complete.");
     }
 
@@ -1004,7 +1004,7 @@ public class WALManager {
             int index = walReader.readUnsignedShort();
             int size = walReader.readUnsignedShort();
             if (size == 0 || index > dbPage.getPageSize() - size)
-                throw new WALFileException("Invalid redo segment range " + index + ":" + size);
+                throw new DataFormatException("Invalid redo segment range " + index + ":" + size);
 
 
             // If it's an UPDATE_PAGE record, skip over the undo data.
@@ -1049,7 +1049,7 @@ public class WALManager {
                 int index = walReader.readUnsignedShort();
                 int size = walReader.readUnsignedShort();
                 if (size == 0 || index > dbPage.getPageSize() - size)
-                    throw new WALFileException("Invalid undo segment range " + index + ":" + size);
+                    throw new DataFormatException("Invalid undo segment range " + index + ":" + size);
 
 
                 // Apply the undo data to the data page.
@@ -1258,7 +1258,7 @@ public class WALManager {
                 int pageNo = walReader.readUnsignedShort();
                 int segments = walReader.readUnsignedShort();
                 DBFile file = storageManager.openDBFile(filename);
-                if (file == null) throw new WALFileException("Missing rollback data file " + filename);
+                if (file == null) throw new DataFormatException("Missing rollback data file " + filename);
                 DBPage page = storageManager.loadDBPage(file,pageNo,true);
                 try {
                     byte[] changes = applyUndoAndGenRedoOnlyData(walReader,page,segments);

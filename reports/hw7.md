@@ -31,3 +31,5 @@ forceWAL第一阶段实现（未验证）：用记录偏移+recordSize计算排�
 设计题doc/lab7design.txt已补A1～A4、B1～B4和C1，分别解释WAL前缀发布顺序、页写出规则、事务ID与firstLSN低水位、普通/模糊检查点差别；并明确当前未证明的并发/回绕、BTree日志覆盖和配置缺项，不将理论论证写成实测通过。
 
 已合并 HW6 通过261项的代码与报告提交70ab1b9，避免沿用旧分裂/删除缺陷。静态修正恢复后仅 firstLSN 前移而 WAL end 不变时仍持久化事务状态；Gradle 显式传测试运行时 classpath 给崩溃子进程。上述 HW7 改动尚待独立远端验证，不因 HW6 成功记为验收。
+
+首轮远端42015127871编译失败：新格式校验抛出了受检WALFileException，却沿用无throws的存储接口。改用既有DataFormatException（StorageException子类），保留损坏检测及原异常接口；未修改WALFileException类型。等待新的远端编译与测试。
