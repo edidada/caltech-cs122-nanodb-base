@@ -25,3 +25,7 @@ Actions保存完整矩阵及每查询产物，预留120分钟上限覆盖最坏2
 新增DATE/TIME/TIMESTAMP字面量、INTERVAL外部year/month/day等单位及可选整数前导精度，保留原INTERVAL '3 days'写法。EXTRACT支持DATE/TIME/TIMESTAMP的year/month/day/hour/minute/second，second保留纳秒小数；不匹配的字段/类型和未知字段明确拒绝，NULL传播。不是仅对Q7的year硬编码。
 
 新增两项SQL级回归，覆盖闰日、跨年/月份、Q1的90天/精度、日期与时间字段、小数秒、NULL、非法日期及不兼容字段。源码已提交前仅作diff检查，没有本地Java编译或SQL执行。完整22查询矩阵仍需真实Actions反馈；CASE和视图等缺项继续保留。
+
+新增原生CaseOperator与CASE语法：支持searched/simple、多分支、ELSE省略为NULL、NULL不相等、首次匹配短路、嵌套和聚合参数。表达式提供完整子树遍历/克隆/相等/哈希，避免将CASE分支从规划器、聚合提取或相关符号发现中隐藏。结果类型合并数值和字符串长度，拒绝不兼容类别。
+
+两项SQL回归覆盖分支顺序、NULL、未选中除零、数值提升、嵌套CASE和SUM(CASE...)。这些以及时间语法仍未远端编译/运行，不能据源码声明已支持Q8/Q12/Q14或所有SQL类型转换。当前没有视图实现，22查询最终结果尚未取得。

@@ -946,6 +946,19 @@ public class NanoSQLTranslator extends NanoSQLBaseVisitor<Object> {
     }
 
     @Override
+    public Object visitExprCase(NanoSQLParser.ExprCaseContext ctx) {
+        java.util.ArrayList<Expression> conditions=new java.util.ArrayList<>();
+        java.util.ArrayList<Expression> results=new java.util.ArrayList<>();
+        for (NanoSQLParser.ExpressionContext condition : ctx.conditions)
+            conditions.add((Expression) visit(condition));
+        for (NanoSQLParser.ExpressionContext result : ctx.results)
+            results.add((Expression) visit(result));
+        return new edu.caltech.nanodb.expressions.CaseOperator(
+            ctx.base==null?null:(Expression)visit(ctx.base),conditions,results,
+            ctx.fallback==null?new LiteralValue(null):(Expression)visit(ctx.fallback));
+    }
+
+    @Override
     public Object visitExprExtract(NanoSQLParser.ExprExtractContext ctx) {
         return new FunctionCall("EXTRACT",false,new LiteralValue(ctx.field.getText()),
             (Expression) visit(ctx.value));

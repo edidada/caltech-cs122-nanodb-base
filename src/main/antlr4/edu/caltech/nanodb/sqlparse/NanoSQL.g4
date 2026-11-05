@@ -351,6 +351,7 @@ cmdProperties:
 expression:
         literalValue                                        # ExprLiteral
       | columnRef                                           # ExprColumnRef
+      | CASE base=expression? (WHEN conditions+=expression THEN results+=expression)+ (ELSE fallback=expression)? END # ExprCase
       | EXTRACT '(' field=IDENT FROM value=expression ')' # ExprExtract
       | SUBSTRING '(' value=expression FROM start=expression (FOR length=expression)? ')' # ExprSubstring
       | functionCall                                        # ExprFunctionCall

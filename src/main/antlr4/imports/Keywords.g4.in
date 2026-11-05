@@ -133,3 +133,9 @@ SUBSTRING : 'substring' ;
 FOR : 'for' ;
 
 EXTRACT : 'extract' ;
+
+CASE : 'case' ;
+WHEN : 'when' ;
+THEN : 'then' ;
+ELSE : 'else' ;
+END : 'end' ;
