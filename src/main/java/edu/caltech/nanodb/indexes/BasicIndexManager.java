@@ -432,6 +432,19 @@ public class BasicIndexManager implements IndexManager {
 
     @Override
     public void dropIndex(TableInfo tableInfo, String indexName) {
-        throw new UnsupportedOperationException("NYI");
+        if (tableInfo == null || indexName == null)
+            throw new IllegalArgumentException("Table and index required");
+        IndexColumnRefs definition = tableInfo.getSchema().getIndex(indexName);
+        if (definition == null) throw new IndexException("No such index: " + indexName);
+        if (definition.getConstraintType() != null)
+            throw new IndexException("Cannot drop an index backing a table constraint: " + indexName);
+        IndexInfo index = openIndex(tableInfo,indexName);
+        DBFile file = index.getTupleFile().getDBFile();
+        storageManager.getBufferManager().removeDBFile(file);
+        FileManager files = storageManager.getFileManager();
+        files.closeDBFile(file);
+        files.deleteDBFile(file);
+        openIndexes.remove(tableInfo.getTableName() + "." + indexName);
+        tableInfo.getSchema().dropIndex(indexName);
     }
 }

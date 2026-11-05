@@ -34,5 +34,9 @@ public class TestHw6IndexOps extends TestIndexOps {
         Assert.assertFalse(dropped.failed(),String.valueOf(dropped.getFailure()));
         // Other methods share the table and may already have created indexes.
         Assert.assertEquals(new java.util.HashSet<>(table.getSchema().getIndexNames()),before);
+        Assert.assertFalse(server.getStorageManager().getIndexManager().indexExists("test_index_ops","idx_test4"));
+        CommandResult recreated=server.doCommand("CREATE INDEX idx_test4 ON test_index_ops(c)",false);
+        Assert.assertFalse(recreated.failed(),String.valueOf(recreated.getFailure()));
+        Assert.assertFalse(server.doCommand("DROP INDEX idx_test4 ON test_index_ops",false).failed());
     }
 }
