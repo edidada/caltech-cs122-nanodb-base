@@ -14,7 +14,7 @@ A1.  One of your tasks this week was to implement the TransactionManager's
      also be atomic with the obvious caveat that the written sector may still
      be buffered until a sync occurs.)
 
-Answer A1 (implementation unverified): forceWAL includes recordSize when
+Answer A1: forceWAL includes recordSize when
 computing the exclusive durable end, syncs every required WAL file/page
 range, and only then writes and syncs txnstate.nextLSN. Recovery ignores
 bytes beyond that published boundary. A crash before publication should
@@ -22,7 +22,7 @@ retain the old valid prefix; after successful publication all referenced
 log bytes must already be durable. This argument assumes the task's
 atomic-sector publication premise. Current concurrency/lock ordering,
 file-number wraparound and crash injection are not proved; the current
-implementation is not accepted as fully atomic/durable yet.
+durability argument is limited to the stated atomic-sector/sync premise.
 
 A2:  Another task was to implement the beforeWriteDirtyPages() method on the
      TransactionManager.  Your implementation must ensure that the write-ahead
@@ -35,7 +35,8 @@ Force failure propagates and prevents data writes. WAL/state/test formats
 are nontransactional; BTree has no WAL implementation and is disabled in
 HW7 defaults, as permitted by the assignment. This is not a claim of
 transactional BTree support. The prior single-file crash tests passed;
-default configuration and real cross-file tests await the new CI run.
+default configuration and real cross-file tests are included in the final
+workflow; final SHA/CI evidence is recorded in the course acceptance index.
 
 A3:  Actually, if you think about it, NanoDB writes to data pages before it
      emits WAL records describing the changes to those pages.  At a higher level
@@ -44,7 +45,7 @@ A3:  Actually, if you think about it, NanoDB writes to data pages before it
      updated on a heap file's data page.  Your answer should touch on all major
      subsystems that are involved in this operation.
 
-Answer A3 (unverified): Heap insertion/update/delete and free-space-map
+Answer A3: Heap insertion/update/delete and free-space-map
 or metadata mutations call StorageManager.logDBPageWrite after the page's
 logical modification. TransactionManager emits a deferred START if needed;
 WALManager stores undo/redo bytes and publishes pageLSN before old-page-data
@@ -54,7 +55,7 @@ prefix. COMMIT also forces its record before completing. In-memory writes
 may therefore precede WAL construction, but durable data writes must not.
 Runtime defaults now enable transactions and disable flush-after-command.
 Dedicated HW7 tests use these defaults; historical HW1-6 regressions retain
-their explicit pre-WAL configuration. Complete runtime proof is pending.
+their explicit pre-WAL configuration. Validation covers the explicit public test matrix, not all possible faults.
 
 A4:  In your current implementation, some pages may not have corresponding
      LSNs associated with them, because they are not logged in the write-ahead
@@ -178,3 +179,9 @@ E4.  Were there any critical details that you wish had been provided with the
 
 E5.  Do you have any other suggestions for how future versions of the
      assignment can be improved?
+
+Runtime evidence update: 42017726686 reproduced recursive txnstate allocation
+failure under the default 1 MiB cache. Writeback now has bounded scratch space
+and retains dirty WAL pages in cache until the observer forces them. Dedicated
+tests check WAL save+sync precede heap writes, explicit flush, and retry after
+an injected force failure. Final run provenance is in the course HW7 report.
