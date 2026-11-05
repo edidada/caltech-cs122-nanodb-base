@@ -72,6 +72,10 @@ public class TransactionManager implements BufferManagerObserver {
      */
     private LogSequenceNumber txnStateNextLSN;
 
+    /** State metadata known to have completed its synchronous write. */
+    private LogSequenceNumber savedFirstLSN;
+    private int savedNextTxnID;
+
 
     public TransactionManager(NanoDBServer server) {
 
@@ -122,7 +126,8 @@ public class TransactionManager implements BufferManagerObserver {
         txnStateNextLSN = lsn;
 
         storageManager.getBufferManager().writeDBFile(dbfTxnState, /* sync */ true);
-
+        savedFirstLSN = lsn;
+        savedNextTxnID = 1;
         return txnState;
     }
 
@@ -145,7 +150,8 @@ public class TransactionManager implements BufferManagerObserver {
         // Retrieve the "first LSN" and "next LSN values so we know the range of
         // the write-ahead log that we need to apply for recovery.
         txnStateNextLSN = txnState.getNextLSN();
-
+        savedFirstLSN = txnState.getFirstLSN();
+        savedNextTxnID = nextTxnID.get();
         return txnState;
     }
 
@@ -153,13 +159,19 @@ public class TransactionManager implements BufferManagerObserver {
     private void storeTxnStateToFile() {
         DBFile dbfTxnState = storageManager.openDBFile(TXNSTATE_FILENAME);
         DBPage dbpTxnState = storageManager.loadDBPage(dbfTxnState, 0);
-        TransactionStatePage txnState = new TransactionStatePage(dbpTxnState);
-
-        txnState.setNextTransactionID(nextTxnID.get());
-        txnState.setFirstLSN(walManager.getFirstLSN());
-        txnState.setNextLSN(txnStateNextLSN);
-
-        storageManager.getBufferManager().writeDBFile(dbfTxnState, /* sync */ true);
+        LogSequenceNumber first = walManager.getFirstLSN();
+        int nextID = nextTxnID.get();
+        try {
+            TransactionStatePage txnState = new TransactionStatePage(dbpTxnState);
+            txnState.setNextTransactionID(nextID);
+            txnState.setFirstLSN(first);
+            txnState.setNextLSN(txnStateNextLSN);
+            storageManager.getBufferManager().writeDBFile(dbfTxnState, /* sync */ true);
+            // Only successful sync changes the no-op detection baseline.
+            savedFirstLSN = first;
+            savedNextTxnID = nextID;
+        }
+        finally {dbpTxnState.unpin();}
     }
 
 
@@ -377,9 +389,11 @@ public class TransactionManager implements BufferManagerObserver {
         if (txnStateNextLSN == null)
             throw new IllegalStateException("Transaction state not initialized");
         if (end.compareTo(txnStateNextLSN) <= 0) {
-            // Recovery can advance firstLSN without appending WAL. Persist its
-            // checkpoint even when the durable end boundary is unchanged.
-            storeTxnStateToFile();
+            // A true no-op does not issue even a txnstate write/fsync. Recovery
+            // checkpoints and read-only transaction IDs can change metadata
+            // without extending WAL, and must still be persisted when changed.
+            if (!java.util.Objects.equals(savedFirstLSN,walManager.getFirstLSN()) ||
+                savedNextTxnID != nextTxnID.get()) storeTxnStateToFile();
             return;
         }
         if (end.compareTo(walManager.getNextLSN()) > 0)

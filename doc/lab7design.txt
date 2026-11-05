@@ -185,3 +185,9 @@ failure under the default 1 MiB cache. Writeback now has bounded scratch space
 and retains dirty WAL pages in cache until the observer forces them. Dedicated
 tests check WAL save+sync precede heap writes, explicit flush, and retry after
 an injected force failure. Final run provenance is in the course HW7 report.
+
+Force no-op audit: saved firstLSN/nextTxnID track only successful state syncs.
+When the requested WAL prefix and metadata are already durable, force returns
+without writes. Metadata-only checkpoint/ID changes still persist, including
+read-only transaction IDs at shutdown. A page-write counter test covers the
+unchanged path; the first post-restart allocation is checked before SELECT.

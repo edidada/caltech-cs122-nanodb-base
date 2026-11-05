@@ -26,6 +26,20 @@ public class TestHw7Transactions {
             actual.add(row.getColumnValue(0)+":"+row.getColumnValue(1));
         Assert.assertEquals(actual,Arrays.asList(expected));
     }
+    public void testUnchangedForceDoesNotWritePages() throws Exception {
+        Path directory=Files.createTempDirectory("nanodb-hw7-noop-");
+        NanoDBServer database=start(directory);
+        try {
+            long before=edu.caltech.nanodb.server.performance.PerformanceCounters.get(
+                edu.caltech.nanodb.server.performance.PerformanceCounters.STORAGE_PAGES_WRITTEN);
+            database.getStorageManager().getTransactionManager().forceWAL();
+            database.getStorageManager().getTransactionManager().forceWAL();
+            Assert.assertEquals(edu.caltech.nanodb.server.performance.PerformanceCounters.get(
+                edu.caltech.nanodb.server.performance.PerformanceCounters.STORAGE_PAGES_WRITTEN),before,
+                "Unchanged forceWAL wrote WAL or transaction-state pages");
+        }
+        finally {Assert.assertTrue(database.shutdown());}
+    }
     public void testCommitRollbackAndRestartWithRealLogging() throws Exception {
         Path directory=Files.createTempDirectory("nanodb-hw7-transactions-");
         NanoDBServer database=start(directory);
