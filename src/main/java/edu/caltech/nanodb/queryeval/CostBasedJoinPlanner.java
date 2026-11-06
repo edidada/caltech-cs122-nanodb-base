@@ -38,9 +38,34 @@ public class CostBasedJoinPlanner extends AbstractPlannerImpl {
     /** Copy predicates before attaching them to a candidate plan. */
     private Expression predicate(Collection<Expression> terms) {
         List<Expression> result=new ArrayList<>();
-        terms.stream().sorted(Comparator.comparing(Object::toString)).forEach(e->result.add(e.duplicate()));
+        List<Expression> ordered = new ArrayList<>(terms);
+        // The old lexical ordering evaluated EXISTS before cheap local filters.
+        // Do not newly reorder a list containing unknown/volatile functions.
+        if (ordered.stream().allMatch(this::reorderable))
+            ordered.sort(Comparator.comparingDouble(this::predicateWork).thenComparing(Object::toString));
+        else ordered.sort(Comparator.comparing(Object::toString));
+        ordered.forEach(e -> result.add(e.duplicate()));
         return PredicateUtils.makePredicate(result);
     }
+    private boolean reorderable(Expression expression) {
+        final boolean[] pure = {true};
+        expression.traverse(new ExpressionProcessor() {
+            public void enter(Expression node) {
+                if (node instanceof FunctionCall && !((FunctionCall) node).getFunction().isDeterministic()) pure[0] = false;
+                if (node instanceof SubqueryOperator &&
+                    !edu.caltech.nanodb.queryast.SubqueryInvariance.isPure(((SubqueryOperator) node).getSubquery())) pure[0] = false;
+            }
+            public Expression leave(Expression node) { return node; }
+        });
+        return pure[0];
+    }
+    private double predicateWork(Expression expression) {
+        ExpressionCostCalculator calculator = new ExpressionCostCalculator();
+        calculator.add(expression);
+        PlanCost cost = calculator.getCost();
+        return cost.cpuCost + 100.0 * cost.numBlockIOs + 1000.0 * cost.numLargeSeeks;
+    }
+
     /** Flatten ordinary inner joins only, collecting ON restrictions. */
     private void collectDetails(FromClause from,List<FromClause> leaves,Set<Expression> terms) {
         if(from.isJoinExpr() && !from.isOuterJoin() && from.getComputedSelectValues()==null && !from.isRenamed()) {

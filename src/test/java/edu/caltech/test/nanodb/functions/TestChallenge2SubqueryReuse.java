@@ -61,4 +61,10 @@ public class TestChallenge2SubqueryReuse extends SqlTestCase {
         for(int i=1;i<3;i++)for(int j=0;j<2;j++)Assert.assertNull(result.getTuples().get(i).getColumnValue(j));
         Assert.assertEquals(query("SELECT NULL IN (SELECT k FROM reuse_set WHERE k<0)").getTuples().get(0).getColumnValue(0),false);
     }
+    public void testCheapPredicateBeforeCorrelatedExists() throws Exception {
+        rows(); server.getFunctionDirectory().addFunction("CACHE_PURE",PureProbe.class); VolatileProbe.calls=0;
+        CommandResult result=query("SELECT a.k FROM reuse_rows a WHERE EXISTS (SELECT CACHE_PURE(b.k) FROM reuse_rows b WHERE b.k=a.k) AND a.k<0");
+        Assert.assertTrue(result.getTuples().isEmpty());
+        Assert.assertEquals(VolatileProbe.calls,0);
+    }
 }

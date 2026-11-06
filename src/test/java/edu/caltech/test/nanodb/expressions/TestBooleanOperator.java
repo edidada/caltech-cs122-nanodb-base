@@ -255,4 +255,35 @@ public class TestBooleanOperator {
 
         assert !iter.hasNext() : "Result contains more terms than expected";
     }
+    /** Exhaustive three-valued truth tables plus decisive short-circuiting. */
+    public void testSqlUnknownTruthTables() {
+        Boolean[] values = {false,true,null};
+        for (Boolean left : values) for (Boolean right : values) {
+            Boolean andExpected = Boolean.FALSE.equals(left) || Boolean.FALSE.equals(right) ? Boolean.FALSE :
+                left == null || right == null ? null : Boolean.TRUE;
+            Boolean orExpected = Boolean.TRUE.equals(left) || Boolean.TRUE.equals(right) ? Boolean.TRUE :
+                left == null || right == null ? null : Boolean.FALSE;
+            BooleanOperator and = new BooleanOperator(BooleanOperator.Type.AND_EXPR);
+            and.addTerm(new LiteralValue(left)); and.addTerm(new LiteralValue(right));
+            BooleanOperator or = new BooleanOperator(BooleanOperator.Type.OR_EXPR);
+            or.addTerm(new LiteralValue(left)); or.addTerm(new LiteralValue(right));
+            org.testng.Assert.assertEquals(and.evaluate(null),andExpected);
+            org.testng.Assert.assertEquals(or.evaluate(null),orExpected);
+        }
+        for (Boolean value : values) {
+            BooleanOperator not = new BooleanOperator(BooleanOperator.Type.NOT_EXPR);
+            not.addTerm(new LiteralValue(value));
+            org.testng.Assert.assertEquals(not.evaluate(null),value == null ? null : !value);
+        }
+        EvalTracker skipped = new EvalTracker(null);
+        BooleanOperator decisive = new BooleanOperator(BooleanOperator.Type.AND_EXPR);
+        decisive.addTerm(new LiteralValue(false)); decisive.addTerm(skipped);
+        org.testng.Assert.assertEquals(decisive.evaluate(null),false);
+        org.testng.Assert.assertFalse(skipped.evaluated);
+        EvalTracker required = new EvalTracker(false);
+        BooleanOperator unknown = new BooleanOperator(BooleanOperator.Type.AND_EXPR);
+        unknown.addTerm(new LiteralValue(null)); unknown.addTerm(required);
+        org.testng.Assert.assertEquals(unknown.evaluate(null),false);
+        org.testng.Assert.assertTrue(required.evaluated);
+    }
 }

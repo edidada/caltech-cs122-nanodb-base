@@ -37,6 +37,12 @@ public final class SubqueryInvariance {
         for (Expression group : query.getGroupByExprs()) expression(group);
         for (OrderByExpression order : query.getOrderByExprs()) expression(order.getExpression());
     }
+    /** Purity alone also permits cheap-first ordering of correlated predicates. */
+    public static boolean isPure(SelectClause query) {
+        SubqueryInvariance analysis = new SubqueryInvariance();
+        analysis.collect(query);
+        return analysis.pure;
+    }
     public static boolean isInvariant(SelectClause query) {
         SubqueryInvariance analysis = new SubqueryInvariance();
         analysis.collect(query);

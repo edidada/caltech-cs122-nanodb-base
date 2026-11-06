@@ -120,72 +120,23 @@ public class BooleanOperator extends Expression {
     }
 
 
+    /** SQL three-valued logic; only a decisive FALSE/TRUE short-circuits. */
     public Object evaluate(Environment env) throws ExpressionException {
-
-        if (terms.size() == 0) {
-            throw new ExpressionException("Boolean " + type +
-                " expression contains no terms!");
-        }
-
-        Object objResult;
-        boolean boolResult;
-
+        if (terms.isEmpty()) throw new ExpressionException("Boolean " + type + " expression contains no terms!");
         if (type == Type.NOT_EXPR) {
-            if (terms.size() != 1) {
-                throw new ExpressionException(
-                    "NOT-expressions may have only one term.");
-            }
-
-            // Evaluate the term...
-            objResult = terms.get(0).evaluate(env);
-            if (objResult == null)
-                boolResult = false;  // TODO:  this is UNKNOWN, not FALSE.
-            else
-                boolResult = TypeConverter.getBooleanValue(objResult);
-
-            // ...then negate it.
-            boolResult = !boolResult;
+            if (terms.size() != 1) throw new ExpressionException("NOT-expressions may have only one term.");
+            Object value = terms.get(0).evaluate(env);
+            return value == null ? null : !TypeConverter.getBooleanValue(value);
         }
-        else {
-            // AND/OR expression.
-
-            if (terms.size() < 1) {
-                throw new ExpressionException(type.stringRep() +
-                    "-expressions must have at least one term.");
-            }
-
-            if (type == Type.AND_EXPR) {
-                boolResult = true;
-            }
-            else {
-                assert type == Type.OR_EXPR : "Unexpected type value " + type + "!";
-                boolResult = false;
-            }
-
-            for (Expression term : terms) {
-                // Evaluate the i-th term, and combine it with the current answer.
-                objResult = term.evaluate(env);
-
-                boolean termValue;
-                if (objResult == null)
-                    termValue = false;  // TODO:  this is UNKNOWN, not FALSE.
-                else
-                    termValue = TypeConverter.getBooleanValue(objResult);
-
-                if (type == Type.AND_EXPR && !termValue) {
-                    // AND term is false, so we are done.  Answer is false.
-                    boolResult = false;
-                    break;
-                }
-                else if (type == Type.OR_EXPR && termValue) {
-                    // OR term is true, so we are done.  Answer is true.
-                    boolResult = true;
-                    break;
-                }
-            }
+        boolean unknown = false;
+        for (Expression term : terms) {
+            Object value = term.evaluate(env);
+            if (value == null) { unknown = true; continue; }
+            boolean truth = TypeConverter.getBooleanValue(value);
+            if (type == Type.AND_EXPR && !truth) return false;
+            if (type == Type.OR_EXPR && truth) return true;
         }
-
-        return Boolean.valueOf(boolResult);
+        return unknown ? null : type == Type.AND_EXPR;
     }
 
 
