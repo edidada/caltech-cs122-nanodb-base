@@ -368,7 +368,7 @@ expression:
       | expression op=('+' | '-') expression                # ExprAdd
       | expression op=( '<' | '<=' | '>' | '>=' | '=' | '==' | '!=' | '<>' ) expression     # ExprCompare
       | expression IS NOT? NULL                             # ExprIsNull
-      | expression NOT? BETWEEN expression AND expression   # ExprBetween
+      | subject=expression NOT? BETWEEN lower=betweenBound AND upper=betweenBound   # ExprBetween
       | expression NOT? LIKE expression                     # ExprLike
       | expression NOT? SIMILAR TO expression               # ExprSimilarTo
       | expression NOT? IN expressionList                   # ExprOneColInValues
@@ -381,6 +381,18 @@ expression:
       | '(' selectStmt ')'                                  # ExprScalarSubquery
       | '(' expression ')'                                  # ExprParen
       ;
+
+// Arithmetic boundaries stop before the BETWEEN separator and outer boolean
+// conjunctions. Parentheses explicitly admit any nested scalar expression.
+betweenBound: first=betweenTerm (ops+=('+'|'-') rest+=betweenTerm)*;
+betweenTerm: first=betweenFactor (ops+=('*'|'/'|'%') rest+=betweenFactor)*;
+betweenFactor:
+    op=('+'|'-') betweenFactor
+  | literalValue
+  | columnRef
+  | functionCall
+  | '(' expression ')'
+  ;
 
 literalValue:
         NULL                        # LiteralNull

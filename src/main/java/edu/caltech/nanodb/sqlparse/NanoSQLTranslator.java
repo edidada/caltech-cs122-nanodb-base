@@ -1053,6 +1053,36 @@ public class NanoSQLTranslator extends NanoSQLBaseVisitor<Object> {
     }
 
     @Override
+    public Object visitBetweenBound(NanoSQLParser.BetweenBoundContext ctx) {
+        Expression result = (Expression) visit(ctx.first);
+        for (int i = 0; i < ctx.ops.size(); i++)
+            result = new ArithmeticOperator(ArithmeticOperator.Type.find(ctx.ops.get(i).getText()),
+                result, (Expression) visit(ctx.rest.get(i)));
+        return result;
+    }
+
+    @Override
+    public Object visitBetweenTerm(NanoSQLParser.BetweenTermContext ctx) {
+        Expression result = (Expression) visit(ctx.first);
+        for (int i = 0; i < ctx.ops.size(); i++)
+            result = new ArithmeticOperator(ArithmeticOperator.Type.find(ctx.ops.get(i).getText()),
+                result, (Expression) visit(ctx.rest.get(i)));
+        return result;
+    }
+
+    @Override
+    public Object visitBetweenFactor(NanoSQLParser.BetweenFactorContext ctx) {
+        if (ctx.betweenFactor() != null) {
+            Expression value = (Expression) visit(ctx.betweenFactor());
+            return "-".equals(ctx.op.getText()) ? new NegateOperator(value) : value;
+        }
+        if (ctx.literalValue() != null) return visit(ctx.literalValue());
+        if (ctx.columnRef() != null) return new ColumnValue((ColumnName) visit(ctx.columnRef()));
+        if (ctx.functionCall() != null) return visit(ctx.functionCall());
+        return visit(ctx.expression());
+    }
+
+    @Override
     public Object visitExprBetween(NanoSQLParser.ExprBetweenContext ctx) {
         boolean invert = (ctx.NOT() != null);
 
@@ -1063,11 +1093,11 @@ public class NanoSQLTranslator extends NanoSQLBaseVisitor<Object> {
             highOp = CompareOperator.Type.GREATER_THAN;
         }
 
-        Expression expr = (Expression) visit(ctx.expression(0));
-        Expression lowExpr = (Expression) visit(ctx.expression(1));
-        Expression highExpr = (Expression) visit(ctx.expression(2));
+        Expression expr = (Expression) visit(ctx.subject);
+        Expression lowExpr = (Expression) visit(ctx.lower);
+        Expression highExpr = (Expression) visit(ctx.upper);
 
-        BooleanOperator andExpr = new BooleanOperator(BooleanOperator.Type.AND_EXPR);
+        BooleanOperator andExpr = new BooleanOperator(invert ? BooleanOperator.Type.OR_EXPR : BooleanOperator.Type.AND_EXPR);
         andExpr.addTerm(new CompareOperator(lowOp, expr, lowExpr));
 
         // Clone the expression before using it again, so that if it is

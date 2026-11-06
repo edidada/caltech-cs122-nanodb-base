@@ -48,7 +48,12 @@ def query(database,sql,output):
     result={'engine':'duckdb','version':duckdb.__version__,'status':'failure'}
     con=duckdb.connect(str(database));rows=None;numeric_columns=None
     try:
-        for statement in statements(sql.read_text()):
+        source = sql.read_text()
+        # DuckDB rejects SQL interval leading-field precision, which constrains
+        # literal representation but does not change this pinned integral value.
+        source, precision_count = re.subn(r"(?i)(\binterval\s+'[0-9]+'\s+day)\s*\(\s*3\s*\)", r"\1", source)
+        result['dialect_adaptations'] = {'interval_day_precision_removed': precision_count}
+        for statement in statements(source):
             cursor=con.execute(statement)
             if statement.lstrip().lower().startswith('select'):
                 numeric_types={'TINYINT','SMALLINT','INTEGER','BIGINT','HUGEINT','UTINYINT','USMALLINT','UINTEGER','UBIGINT','UHUGEINT','FLOAT','DOUBLE','DECIMAL','BIGNUM'}
