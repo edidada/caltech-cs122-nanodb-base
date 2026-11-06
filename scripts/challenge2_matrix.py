@@ -1,4 +1,4 @@
-"""Run every query in isolation. Success here means observed execution only."""
+"""Attempt all queries, retain evidence, and require all 22 oracle matches."""
 from pathlib import Path
 import decimal,hashlib,json,os,shutil,subprocess,sys,time
 from instantiate_tpch_queries import instantiate,ROOT
@@ -77,5 +77,7 @@ def main():
     (output/'matrix.json').write_text(json.dumps(matrix,indent=2)+'\n')
     print('All 22 attempts recorded; matched:',matrix['matched_queries'])
     print('Not accepted:',matrix['unaccepted_queries'])
+    if matrix['unaccepted_queries']:
+        raise SystemExit('Challenge2 acceptance failed: some queries did not match the independent oracle')
 
 if __name__=='__main__':main()
