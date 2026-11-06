@@ -39,3 +39,7 @@ Actions保存完整矩阵及每查询产物，预留120分钟上限覆盖最坏2
 静态复核修正CASE结果转换：不再调用存储列coerceTo的默认VARCHAR(1)/NUMERIC(scale=0)截断规则，只做表达式级数值提升；只读符号遍历和语义保持克隆不清空已解析类型。新增完整长字符串、小数选中分支及getAllSymbols/duplicate后类型保留检查。此为源码推导的问题和未运行回归，不称为已复现通过。
 
 视图静态审查补齐：普通表枚举仅收集.tbl文件，不将.view/日志/状态文件误列为表；CREATE VIEW的写入异常只清理本次已成功CREATE_NEW的残缺文件，不删除已有定义。新增显式循环/缺SQL定义故障夹具，验证失败后ThreadLocal展开栈清理并可恢复查询。此为待Actions运行的测试，没有宣称视图崩溃原子性。
+
+## 首次远端实测修复
+
+2026-11-06 通过现有 SSH 身份发布，首轮 run 42163699874 完成 Maven 286 项，7 项失败、0 errors/skips；尚未进入22查询。失败暴露两处公共路径：专用 SUBSTRING/EXTRACT 语法未像一般函数调用一样 resolve FunctionDirectory；SELECT 未命名表达式在输出 schema 初始化前分配列名，引发空指针。已补专用函数解析，并按 SELECT 列表顺序增量初始化结果 schema，等待最终提交重新运行，未宣称通过。

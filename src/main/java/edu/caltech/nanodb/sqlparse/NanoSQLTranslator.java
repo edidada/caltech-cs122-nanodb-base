@@ -977,8 +977,11 @@ public class NanoSQLTranslator extends NanoSQLBaseVisitor<Object> {
 
     @Override
     public Object visitExprExtract(NanoSQLParser.ExprExtractContext ctx) {
-        return new FunctionCall("EXTRACT",false,new LiteralValue(ctx.field.getText()),
-            (Expression) visit(ctx.value));
+        FunctionCall call = new FunctionCall("EXTRACT", false,
+            new LiteralValue(ctx.field.getText()), (Expression) visit(ctx.value));
+        if (functionDirectory != null)
+            call.resolve(functionDirectory);
+        return call;
     }
 
     @Override
@@ -987,7 +990,10 @@ public class NanoSQLTranslator extends NanoSQLBaseVisitor<Object> {
         args.add((Expression) visit(ctx.value));
         args.add((Expression) visit(ctx.start));
         if (ctx.length != null) args.add((Expression) visit(ctx.length));
-        return new FunctionCall("SUBSTRING",false,args);
+        FunctionCall call = new FunctionCall("SUBSTRING", false, args);
+        if (functionDirectory != null)
+            call.resolve(functionDirectory);
+        return call;
     }
 
     @Override

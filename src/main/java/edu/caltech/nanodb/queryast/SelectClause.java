@@ -403,7 +403,9 @@ public class SelectClause {
         // known and non-ambiguous names from the FROM clause.
 
         // SELECT values:  SELECT a, b + c, tbl.* ...
-        List<ColumnInfo> resultColumnInfos = new ArrayList<>();
+        // Unnamed expressions need a non-null schema of preceding outputs.
+        // Reset this on every computation, including repeated view expansion.
+        resultSchema = new Schema();
         Set<String> fromTables = fromSchema.getTableNames();
 
         for (SelectValue selVal : selectValues) {
@@ -437,12 +439,15 @@ public class SelectClause {
             }
 
             // Update the result-schema with this select-value's column-info(s).
-            resultColumnInfos.addAll(selVal.getColumnInfos(selVal.isWildcard()?fromSchema:getExpressionSchema(), resultSchema));
+            for (ColumnInfo column : selVal.getColumnInfos(
+                selVal.isWildcard() ? fromSchema : getExpressionSchema(), resultSchema)) {
+                resultSchema.addColumnInfo(column);
+            }
         }
 
         // Construct a resultSchema which is the "summation" of all
         // SelectValues' columnInfos.
-        resultSchema = new Schema(resultColumnInfos);
+        // resultSchema was accumulated in SELECT-list order above.
 
         logger.debug("Query schema:  " + resultSchema);
         logger.debug("FROM-clause schema:  " + fromSchema);
