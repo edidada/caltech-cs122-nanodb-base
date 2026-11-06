@@ -58,7 +58,7 @@ public abstract class AbstractPlannerImpl extends SimplestPlanner {
         else {
             throw new InvalidSQLException("Unsupported FROM clause: " + from);
         }
-        if (from.isRenamed()) plan = new RenameNode(plan, from.getResultName());
+        if (from.isRenamed()) plan = new RenameNode(plan, from.getResultName(), from.getColumnAliases());
         return plan;
     }
 

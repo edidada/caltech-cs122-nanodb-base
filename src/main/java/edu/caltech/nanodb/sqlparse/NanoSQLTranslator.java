@@ -698,7 +698,11 @@ public class NanoSQLTranslator extends NanoSQLBaseVisitor<Object> {
     @Override
     public Object visitFromNestedSelect(NanoSQLParser.FromNestedSelectContext ctx) {
         SelectCommand selectCmd = (SelectCommand) visit(ctx.selectStmt());
-        return new FromClause(selectCmd.getSelectClause(), ctx.alias.getText().toLowerCase());
+        FromClause result = new FromClause(selectCmd.getSelectClause(), ctx.alias.getText().toLowerCase());
+        java.util.List<String> columns = new java.util.ArrayList<>();
+        for (Token column : ctx.columns) columns.add(column.getText().toLowerCase());
+        result.setColumnAliases(columns);
+        return result;
     }
 
     @Override

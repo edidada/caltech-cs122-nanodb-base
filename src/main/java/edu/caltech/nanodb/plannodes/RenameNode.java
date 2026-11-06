@@ -18,8 +18,7 @@ import edu.caltech.nanodb.relations.Tuple;
 /**
  * This plan-node implements the Rename relational algebra operation, for
  * either renaming a table in a query, or assigning a table-name to a derived
- * relation.  <b>Note that at present, it is not possible to rename individual
- * columns.</b>  That should be done with the {@link ProjectNode} instead.
+ * relation, including an optional positional list of output column names.
  */
 public class RenameNode extends PlanNode {
 
@@ -28,10 +27,15 @@ public class RenameNode extends PlanNode {
 
     /** The result table-name to use in the output schema of this plan-node. */
     private String resultTableName;
+    private List<String> columnNames;
 
     public RenameNode(PlanNode subplan, String resultTableName) {
-        super(subplan);
+        this(subplan, resultTableName, java.util.Collections.emptyList());
+    }
 
+    public RenameNode(PlanNode subplan, String resultTableName, List<String> columnNames) {
+        super(subplan);
+        this.columnNames = java.util.Collections.unmodifiableList(new ArrayList<>(columnNames));
         if (resultTableName == null)
             throw new IllegalArgumentException("resultTableName cannot be null");
 
@@ -40,6 +44,9 @@ public class RenameNode extends PlanNode {
 
     @Override
     public List<OrderByExpression> resultsOrderedBy() {
+        // Positional column renaming may invalidate arbitrary child ordering
+        // expressions. Keep the physical order, conservatively omit the claim.
+        if (!columnNames.isEmpty()) return java.util.Collections.emptyList();
         List<OrderByExpression> resultsOrderedBy = new ArrayList<>();
 
         logger.debug("Renaming table name in ORDER BY expression");
@@ -51,7 +58,7 @@ public class RenameNode extends PlanNode {
                     resultTableName,
                     expr.getColumnInfo(leftChild.getSchema()).getName()));
 
-            resultsOrderedBy.add(new OrderByExpression(expr));
+            resultsOrderedBy.add(new OrderByExpression(expr, orderByExpr.isAscending()));
         }
 
         return resultsOrderedBy;
@@ -78,8 +85,7 @@ public class RenameNode extends PlanNode {
         leftChild.prepare();
 
         // Copy the left child's schema, then change the schema's table-name.
-        schema = new Schema(leftChild.getSchema());
-        schema.setTableName(resultTableName);
+        schema = leftChild.getSchema().renamed(resultTableName, columnNames);
 
         // Use the child's cost and stats unmodified.
         cost = leftChild.getCost();
@@ -121,7 +127,7 @@ public class RenameNode extends PlanNode {
     public boolean equals(Object obj) {
         if (obj instanceof RenameNode) {
             RenameNode other = (RenameNode) obj;
-            return resultTableName.equals(other.resultTableName) &&
+            return resultTableName.equals(other.resultTableName) && columnNames.equals(other.columnNames) &&
                    leftChild.equals(other.leftChild);
         }
 
@@ -132,6 +138,7 @@ public class RenameNode extends PlanNode {
     public int hashCode() {
         int hash = 17;
         hash = 37 * hash + resultTableName.hashCode();
+        hash = 37 * hash + columnNames.hashCode();
         hash = 37 * hash + leftChild.hashCode();
         return hash;
     }

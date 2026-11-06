@@ -298,7 +298,7 @@ fromExpr:
         | fromExpr ',' fromExpr                                         # FromImplicitCrossJoin
         | tableName=IDENT (AS? alias=IDENT)?                            # FromTable
         | functionCall (AS? alias=IDENT)?                               # FromTableFunction
-        | '(' selectStmt ')' AS? alias=IDENT                            # FromNestedSelect
+        | '(' selectStmt ')' AS? alias=IDENT ('(' columns+=IDENT (',' columns+=IDENT)* ')')? # FromNestedSelect
         | '(' fromExpr ')'                                              # FromParens
         ;
 

@@ -163,6 +163,15 @@ public class FromClause {
      */
     private String aliasName = null;
 
+    private List<String> columnAliases = java.util.Collections.emptyList();
+
+    public List<String> getColumnAliases() { return columnAliases; }
+
+    public void setColumnAliases(List<String> aliases) {
+        if (!isDerivedTable()) throw new IllegalStateException("Column aliases require a derived table");
+        columnAliases = java.util.Collections.unmodifiableList(new ArrayList<>(aliases));
+    }
+
 
     /**
      * If this <tt>FROM</tt> clause is a join expression then this references
@@ -735,8 +744,7 @@ public class FromClause {
             assert aliasName != null;
 
             // Make a copy of the result schema and change the table names.
-            result = new Schema(result);
-            result.setTableName(aliasName);
+            result = result.renamed(aliasName, columnAliases);
 
             break;
 

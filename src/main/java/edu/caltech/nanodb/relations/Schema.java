@@ -1053,6 +1053,21 @@ public class Schema implements Serializable, Iterable<ColumnInfo> {
     }
 
 
+    /** A positional derived-relation rename; does not change the child schema. */
+    public Schema renamed(String tableName, List<String> columnNames) {
+        if (columnNames.isEmpty()) {
+            Schema copy = new Schema(this);
+            copy.setTableName(tableName);
+            return copy;
+        }
+        if (columnNames.size() != numColumns() || new HashSet<>(columnNames).size() != columnNames.size())
+            throw new SchemaNameException("Derived column aliases must be unique and match output width");
+        Schema result = new Schema();
+        for (int i = 0; i < numColumns(); i++)
+            result.addColumnInfo(new ColumnInfo(columnNames.get(i), tableName, getColumnInfo(i).getType()));
+        return result;
+    }
+
     @Override
     public String toString() {
         return "Schema[cols=" + columnInfos.toString() + "]";
