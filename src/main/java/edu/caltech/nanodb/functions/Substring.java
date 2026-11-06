@@ -6,6 +6,8 @@ import edu.caltech.nanodb.relations.*;
 
 /** SQL one-based character substring, counted in Unicode code points. */
 public class Substring extends SimpleFunction {
+    @Override public boolean isDeterministic() { return true; }
+
     private void arity(List<Expression> args) {
         if(args.size()<2||args.size()>3)throw new ExpressionException("SUBSTRING requires two or three arguments");
     }

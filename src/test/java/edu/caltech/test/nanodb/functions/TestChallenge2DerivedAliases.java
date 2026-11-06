@@ -15,6 +15,8 @@ public class TestChallenge2DerivedAliases extends SqlTestCase {
     public void testPositionalNamesAndHiddenOriginalNames() throws Exception {
         Assert.assertEquals(((Number)query("SELECT d.x+d.y FROM (SELECT 1 AS original,2 AS other) AS d(x,y)").getTuples().get(0).getColumnValue(0)).intValue(),3);
         Assert.assertEquals(((Number)query("SELECT d.y FROM (SELECT 1 AS v,2 AS v) AS d(x,y)").getTuples().get(0).getColumnValue(0)).intValue(),2);
+        Assert.assertTrue(server.doCommand("SELECT d.v FROM (SELECT 1 AS v,2 AS v) AS d",true).failed());
+        Assert.assertTrue(server.doCommand("CREATE TABLE alias_bad(v INTEGER,v INTEGER)",false).failed());
         Assert.assertTrue(server.doCommand("SELECT original FROM (SELECT 1 AS original) AS d(x)",true).failed());
         Assert.assertTrue(server.doCommand("SELECT * FROM (SELECT 1,2) AS d(x)",true).failed());
         Assert.assertTrue(server.doCommand("SELECT * FROM (SELECT 1,2) AS d(x,x)",true).failed());

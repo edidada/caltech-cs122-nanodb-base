@@ -102,4 +102,50 @@ public class TestHw5SubqueryOperators {
         });
         Assert.assertNotEquals(original,clone);
     }
+    private InSubqueryOperator reusable(Object left, Input input) {
+        SelectClause query = new SelectClause() {
+            @Override public edu.caltech.nanodb.relations.Schema getSchema() {
+                return new edu.caltech.nanodb.relations.Schema();
+            }
+        };
+        InSubqueryOperator result = new InSubqueryOperator(new LiteralValue(left),query);
+        result.setSubqueryPlan(input);
+        return result;
+    }
+    public void testExecutionLocalReuseReleasesAndOverflowFallback() {
+        Input input = new Input(new Row((Object)null), new Row(2));
+        InSubqueryOperator op = reusable(2,input);
+        try (SubqueryExecutionCache.Scope scope = SubqueryExecutionCache.open(true)) {
+            Assert.assertEquals(op.evaluate(null),true);
+            Assert.assertEquals(op.evaluate(null),true);
+            Assert.assertEquals(input.starts,1);
+            Assert.assertEquals(input.cleans,1);
+            for (Row row : input.rows) Assert.assertEquals(row.releases,1);
+        }
+        input.rows[1].setColumnValue(0,9);
+        try (SubqueryExecutionCache.Scope scope = SubqueryExecutionCache.open(true)) {
+            Assert.assertNull(op.evaluate(null));
+        }
+        Assert.assertEquals(input.starts,2);
+        Row[] many = new Row[4097];
+        for (int i=0;i<many.length;i++) many[i]=new Row(i);
+        Input large = new Input(many);
+        InSubqueryOperator overflow = reusable(-1,large);
+        try (SubqueryExecutionCache.Scope scope = SubqueryExecutionCache.open(true)) {
+            Assert.assertEquals(overflow.evaluate(null),false);
+            Assert.assertEquals(overflow.evaluate(null),false);
+        }
+        Assert.assertEquals(large.starts,3);
+        Assert.assertEquals(large.cleans,3);
+        for (Row row : many) Assert.assertEquals(row.releases,3);
+        Input broken = new Input(); broken.fail=true;
+        try (SubqueryExecutionCache.Scope scope = SubqueryExecutionCache.open(true)) {
+            fails(reusable(1,broken),broken);
+        }
+        broken.fail=false;
+        try (SubqueryExecutionCache.Scope scope = SubqueryExecutionCache.open(true)) {
+            Assert.assertEquals(reusable(1,broken).evaluate(null),false);
+        }
+        Assert.assertEquals(broken.cleans,2);
+    }
 }

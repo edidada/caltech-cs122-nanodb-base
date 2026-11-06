@@ -13,6 +13,8 @@ import edu.caltech.nanodb.relations.Schema;
  * maximum of a collection of values.
  */
 public class MinMaxAggregate extends AggregateFunction {
+    @Override public boolean isDeterministic() { return true; }
+
 
     /**
      * This value is set to 1 if the aggregate function is computing the minimum

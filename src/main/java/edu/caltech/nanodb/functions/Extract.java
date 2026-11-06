@@ -9,6 +9,8 @@ import edu.caltech.nanodb.relations.*;
 
 /** Extract temporal fields, with explicit errors for incompatible field/type pairs. */
 public class Extract extends SimpleFunction {
+    @Override public boolean isDeterministic() { return true; }
+
     private void arity(List<Expression> args) {
         if(args.size()!=2)throw new ExpressionException("EXTRACT requires field and temporal value");
     }

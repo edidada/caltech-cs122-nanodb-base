@@ -283,7 +283,7 @@ public class ProjectNode extends PlanNode {
         }
 
         // Initialize a new schema object with the information we collected.
-        schema = new Schema(colInfos);
+        schema = Schema.outputSchema(colInfos);
     }
 
 

@@ -111,7 +111,12 @@ public abstract class QueryCommand extends Command {
             TupleProcessor processor =
                 getTupleProcessor(server.getEventDispatcher());
 
-            EvalStats stats = QueryEvaluator.executePlan(plan, processor);
+            EvalStats stats;
+            try (edu.caltech.nanodb.expressions.SubqueryExecutionCache.Scope scope =
+                     edu.caltech.nanodb.expressions.SubqueryExecutionCache.open(queryType == Type.SELECT && this instanceof SelectCommand &&
+                         edu.caltech.nanodb.queryast.SubqueryInvariance.isInvariant(((SelectCommand) this).getSelectClause()))) {
+                stats = QueryEvaluator.executePlan(plan, processor);
+            }
 
             // Print out the evaluation statistics.
 

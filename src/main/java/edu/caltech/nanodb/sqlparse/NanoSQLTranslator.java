@@ -1080,7 +1080,7 @@ public class NanoSQLTranslator extends NanoSQLBaseVisitor<Object> {
             Expression value = (Expression) visit(ctx.betweenFactor());
             return "-".equals(ctx.op.getText()) ? new NegateOperator(value) : value;
         }
-        if (ctx.literalValue() != null) return visit(ctx.literalValue());
+        if (ctx.literalValue() != null) return new LiteralValue(visit(ctx.literalValue()));
         if (ctx.columnRef() != null) return new ColumnValue((ColumnName) visit(ctx.columnRef()));
         if (ctx.functionCall() != null) return visit(ctx.functionCall());
         return visit(ctx.expression());

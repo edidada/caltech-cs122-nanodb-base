@@ -16,6 +16,8 @@ import edu.caltech.nanodb.relations.Schema;
  * functions. It computes both the sum and average of a collection of values.
  */
 public class SumAvgAggregate extends AggregateFunction {
+    @Override public boolean isDeterministic() { return true; }
+
 
     /**
      * This value is set to true if we want to compute the average value.

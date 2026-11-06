@@ -358,6 +358,11 @@ public class SelectClause {
     }
 
 
+    /** Query identities referenced by this block, used for execution-local reuse. */
+    public Set<SelectClause> getCorrelationOwners() {
+        return new java.util.HashSet<>(correlatedWith.values());
+    }
+
     public Set<ColumnName> getCorrelatedColumns() {
         return correlatedWith.keySet();
     }
@@ -405,7 +410,7 @@ public class SelectClause {
         // SELECT values:  SELECT a, b + c, tbl.* ...
         // Unnamed expressions need a non-null schema of preceding outputs.
         // Reset this on every computation, including repeated view expansion.
-        resultSchema = new Schema();
+        resultSchema = Schema.outputSchema(java.util.Collections.emptyList());
         Set<String> fromTables = fromSchema.getTableNames();
 
         for (SelectValue selVal : selectValues) {

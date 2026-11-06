@@ -46,6 +46,7 @@ public abstract class SubqueryOperator extends Expression {
 
     /** Indirection from the subplan to the currently evaluating outer node. */
     private Environment outerContext;
+    private boolean reusable;
 
 
     /**
@@ -67,6 +68,7 @@ public abstract class SubqueryOperator extends Expression {
      */
     public void setSubqueryPlan(PlanNode plan) {
         subqueryPlan = plan;
+        reusable = plan != null && edu.caltech.nanodb.queryast.SubqueryInvariance.isInvariant(subquery);
         outerContext = new Environment();
         if (plan != null) plan.addParentEnvironmentToPlanTree(outerContext);
     }
@@ -78,6 +80,42 @@ public abstract class SubqueryOperator extends Expression {
         if (outerContext != null) outerContext.setParentEnvironment(environment);
     }
 
+
+    /** Materialize only invariant subqueries and immutable values within a
+     * per-SELECT 1 MiB estimated budget, 4096-row and 32-column entry caps.
+     * Overflow disables reuse for this operator; normal streaming still runs. */
+    protected final java.util.List<TupleLiteral> reusableRows(Environment env) {
+        SubqueryExecutionCache.Context cache = SubqueryExecutionCache.current();
+        if (cache == null || !reusable) return null;
+        if (cache.rows.containsKey(this)) return cache.rows.get(this);
+        if (!cache.disabled.add(this)) return null;
+        bindOuterContext(env);
+        java.util.List<TupleLiteral> rows = new java.util.ArrayList<>();
+        long bytes = 64;
+        subqueryPlan.initialize();
+        try {
+            edu.caltech.nanodb.relations.Tuple row;
+            while ((row = subqueryPlan.getNextTuple()) != null) {
+                try {
+                    if (rows.size() >= 4096 || row.getColumnCount() > 32) return null;
+                    Object[] values = new Object[row.getColumnCount()];
+                    bytes += 64 + 8L * values.length;
+                    for (int i = 0; i < values.length; i++) {
+                        values[i] = row.getColumnValue(i);
+                        long size = SubqueryExecutionCache.valueBytes(values[i]);
+                        if (size < 0) return null;
+                        bytes += size;
+                    }
+                    if (cache.bytes + bytes > 1048576) return null;
+                    rows.add(new TupleLiteral(values));
+                } finally { row.unpin(); }
+            }
+        } finally { subqueryPlan.cleanUp(); }
+        cache.bytes += bytes;
+        java.util.List<TupleLiteral> result = java.util.Collections.unmodifiableList(rows);
+        cache.rows.put(this, result);
+        return result;
+    }
 
     /**
      * Retrieves the current execution plan for the subquery.

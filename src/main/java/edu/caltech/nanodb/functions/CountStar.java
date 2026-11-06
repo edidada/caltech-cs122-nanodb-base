@@ -13,6 +13,8 @@ import edu.caltech.nanodb.relations.Schema;
  * Created by donnie on 11/1/14.
  */
 public class CountStar extends AggregateFunction {
+    @Override public boolean isDeterministic() { return true; }
+
     int count = 0;
 
 

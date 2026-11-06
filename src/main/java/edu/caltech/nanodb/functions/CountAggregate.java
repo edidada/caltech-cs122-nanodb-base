@@ -18,6 +18,8 @@ import edu.caltech.nanodb.relations.SQLDataType;
  * values to compute the distinct count.
  */
 public class CountAggregate extends AggregateFunction {
+    @Override public boolean isDeterministic() { return true; }
+
 
     /** Contains the current number of items */
     private int count;

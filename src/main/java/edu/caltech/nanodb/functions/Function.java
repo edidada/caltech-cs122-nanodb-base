@@ -31,6 +31,9 @@ package edu.caltech.nanodb.functions;
  */
 public abstract class Function implements Cloneable {
 
+    /** Unknown/custom functions are volatile until explicitly declared pure. */
+    public boolean isDeterministic() { return false; }
+
     /**
      * Creates a copy of expression.
      */

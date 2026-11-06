@@ -80,6 +80,16 @@ public class InSubqueryOperator extends SubqueryOperator {
             throw new IllegalStateException("No execution plan for subquery");
         List<Object> values = new ArrayList<>();
         for (Expression expr : exprList) values.add(expr.evaluate(env));
+        List<TupleLiteral> cached = reusableRows(env);
+        if (cached != null) {
+            boolean unknown = false;
+            for (Tuple row : cached) {
+                Boolean equal = rowEqual(values, row, env);
+                if (Boolean.TRUE.equals(equal)) return !invert;
+                unknown |= equal == null;
+            }
+            return unknown ? null : invert;
+        }
         bindOuterContext(env);
         subqueryPlan.initialize();
         boolean unknown = false;
@@ -87,17 +97,9 @@ public class InSubqueryOperator extends SubqueryOperator {
             Tuple row;
             while ((row = subqueryPlan.getNextTuple()) != null) {
                 try {
-                    if (row.getColumnCount() != values.size())
-                        throw new ExpressionException("IN subquery column count does not match left operand");
-                    boolean rowUnknown = false, different = false;
-                    for (int i = 0; i < values.size(); i++) {
-                        Object equal = new CompareOperator(CompareOperator.Type.EQUALS,
-                            new LiteralValue(values.get(i)),new LiteralValue(row.getColumnValue(i))).evaluate(env);
-                        if (Boolean.FALSE.equals(equal)) {different = true;break;}
-                        if (equal == null) rowUnknown = true;
-                    }
-                    if (!different && !rowUnknown) return !invert;
-                    unknown |= !different && rowUnknown;
+                    Boolean equal = rowEqual(values, row, env);
+                    if (Boolean.TRUE.equals(equal)) return !invert;
+                    unknown |= equal == null;
                 }
                 finally {row.unpin();}
             }
@@ -106,6 +108,19 @@ public class InSubqueryOperator extends SubqueryOperator {
         finally {subqueryPlan.cleanUp();}
     }
 
+
+    private Boolean rowEqual(List<Object> values, Tuple row, Environment env) {
+        if (row.getColumnCount() != values.size())
+            throw new ExpressionException("IN subquery column count does not match left operand");
+        boolean unknown = false;
+        for (int i = 0; i < values.size(); i++) {
+            Object equal = new CompareOperator(CompareOperator.Type.EQUALS,
+                new LiteralValue(values.get(i)), new LiteralValue(row.getColumnValue(i))).evaluate(env);
+            if (Boolean.FALSE.equals(equal)) return false;
+            unknown |= equal == null;
+        }
+        return unknown ? null : true;
+    }
 
     @Override
     public Expression traverse(ExpressionProcessor p) {

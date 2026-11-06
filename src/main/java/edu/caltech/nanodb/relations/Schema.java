@@ -133,7 +133,17 @@ public class Schema implements Serializable, Iterable<ColumnInfo> {
 
 
     /** Construct an empty schema. */
+    private boolean duplicateOutputNames;
+
     public Schema() {
+    }
+
+    /** Query projections may repeat output names; stored table schemas may not. */
+    public static Schema outputSchema(Iterable<ColumnInfo> columns) {
+        Schema schema = new Schema();
+        schema.duplicateOutputNames = true;
+        for (ColumnInfo column : columns) schema.addColumnInfo(column);
+        return schema;
     }
 
 
@@ -171,6 +181,7 @@ public class Schema implements Serializable, Iterable<ColumnInfo> {
      */
     public Schema(Schema... schemas) {
         this();
+        if (schemas.length == 1) duplicateOutputNames = schemas[0].duplicateOutputNames;
         for (Schema s : schemas)
             append(s);
     }
@@ -259,7 +270,7 @@ public class Schema implements Serializable, Iterable<ColumnInfo> {
         // appears in the schema.
 
         HashMap<String, IndexedColumnInfo> colMap = colsHashedByTable.get(tblName);
-        if (colMap != null && colMap.containsKey(colName)) {
+        if (!duplicateOutputNames && colMap != null && colMap.containsKey(colName)) {
             throw new SchemaNameException("Specified column " + colInfo +
             " is a duplicate of an existing column.");
         }
@@ -569,6 +580,18 @@ public class Schema implements Serializable, Iterable<ColumnInfo> {
         if (colName == null)
             throw new IllegalArgumentException("colName cannot be null");
 
+        if (duplicateOutputNames) {
+            int found = -1;
+            for (int i = 0; i < columnInfos.size(); i++) {
+                ColumnInfo column = columnInfos.get(i);
+                if (colName.equals(column.getName()) && (tblName == null || tblName.equals(column.getTableName()))) {
+                    if (found >= 0) throw new SchemaNameException("Column name is ambiguous: " + colName);
+                    found = i;
+                }
+            }
+            return found;
+        }
+
         ArrayList<IndexedColumnInfo> colList = colsHashedByColumn.get(colName);
 
         if (colList == null)
@@ -654,6 +677,16 @@ public class Schema implements Serializable, Iterable<ColumnInfo> {
     public SortedMap<Integer, ColumnInfo> findColumns(ColumnName colName) {
 
         TreeMap<Integer, ColumnInfo> found = new TreeMap<>();
+        if (duplicateOutputNames) {
+            for (int index = 0; index < columnInfos.size(); index++) {
+                ColumnInfo column = columnInfos.get(index);
+                if ((!colName.isTableSpecified() || colName.getTableName().equals(column.getTableName())) &&
+                    (colName.isColumnWildcard() || colName.getColumnName().equals(column.getName())))
+                    found.put(index, column);
+            }
+            return found;
+        }
+
 
         if (colName.isColumnWildcard()) {
             // Some kind of wildcard column-name object.
