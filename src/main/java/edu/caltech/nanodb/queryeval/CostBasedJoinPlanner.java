@@ -148,6 +148,17 @@ public class CostBasedJoinPlanner extends AbstractPlannerImpl {
                 Set<Expression> unused=new LinkedHashSet<>(all);unused.removeAll(used);
                 Set<Expression> joinTerms=applicable(unused,prefix.plan.getSchema(),leaf.plan.getSchema());used.addAll(joinTerms);
                 PlanNode join=new NestedLoopJoinNode(prefix.plan,leaf.plan,JoinType.INNER,predicate(joinTerms));join.prepare();
+                Set<Expression> probeTerms=new LinkedHashSet<>(leaf.used);probeTerms.addAll(joinTerms);
+                // Only a base-table right leaf with pure predicates is eligible.
+                // Outer/merged joins remain opaque; ordinary loops remain a candidate.
+                if(clauses.get(i).isBaseTable() && probeTerms.stream().allMatch(this::reorderable)) {
+                    PlanNode probe=ParameterizedIndexPlanner.choose(storageManager,clauses.get(i),probeTerms,predicate(probeTerms));
+                    if(probe instanceof ParameterizedIndexScanNode) {
+                        PlanNode indexed=new IndexNestedLoopJoinNode(prefix.plan,(ParameterizedIndexScanNode)probe,join.getCost().numTuples);
+                        indexed.prepare();
+                        if(indexed.getCost().cpuCost<join.getCost().cpuCost)join=indexed;
+                    }
+                }
                 BitSet ids=(BitSet)prefix.leaves.clone();ids.set(i);String order=prefix.order+","+leaf.order;
                 JoinComponent old=next.get(ids);int cmp=old==null?-1:Float.compare(join.getCost().cpuCost,old.plan.getCost().cpuCost);
                 if(old==null || cmp<0 || cmp==0 && order.compareTo(old.order)<0)
