@@ -338,6 +338,9 @@ public class BTreeTupleFile implements SequentialTupleFile {
                 if (cmp == 0) {
                     // Found it!
                     tup.pin();
+                    // Transfer the navigation reference; the returned tuple
+                    // owns exactly its own pin, including early EXISTS exit.
+                    leaf.getDBPage().unpin();
                     return tup;
                 }
                 else if (cmp > 0) {

@@ -162,6 +162,9 @@ public class CostBasedJoinPlanner extends AbstractPlannerImpl {
     /** Optimize only FROM/WHERE; all upper SQL clauses remain shared. */
     @Override protected PlanNode buildFromWhere(SelectClause select) {
         if(select.getFromClause()==null)return super.buildFromWhere(select);
-        return makeJoinPlan(select.getFromClause(),terms(select.getWhereExpr()));
+        Set<Expression> restrictions=terms(select.getWhereExpr());
+        PlanNode probe=ParameterizedIndexPlanner.choose(storageManager,select.getFromClause(),restrictions,predicate(restrictions));
+        if(probe!=null)return probe;
+        return makeJoinPlan(select.getFromClause(),restrictions);
     }
 }
