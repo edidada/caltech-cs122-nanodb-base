@@ -6,7 +6,8 @@ import org.testng.annotations.Test;
 import edu.caltech.test.nanodb.sql.SqlTestCase;
 import edu.caltech.nanodb.commands.SelectCommand;
 import edu.caltech.nanodb.server.CommandResult;
-import edu.caltech.nanodb.expressions.TupleLiteral;
+import edu.caltech.nanodb.expressions.*;
+import edu.caltech.nanodb.queryast.SelectValue;
 import edu.caltech.nanodb.indexes.IndexInfo;
 import edu.caltech.nanodb.plannodes.PlanNode;
 import edu.caltech.nanodb.queryeval.*;
@@ -15,6 +16,7 @@ import edu.caltech.nanodb.storage.*;
 
 @Test(groups={"challenge2"})
 public class TestChallenge2IndexProbe extends SqlTestCase {
+    private final Map<PlanNode,String> planTrees=new IdentityHashMap<>();
     private void command(String sql) throws Exception {
         CommandResult result=server.doCommand(sql,false);
         if(result.failed())throw result.getFailure();
@@ -31,7 +33,23 @@ public class TestChallenge2IndexProbe extends SqlTestCase {
         select.getSelectClause().computeSchema(server.getStorageManager().getTableManager(),null);
         Planner planner=reference?new SimplePlanner():new CostBasedJoinPlanner();
         planner.setStorageManager(server.getStorageManager());
-        return planner.makePlan(select.getSelectClause(),null);
+        PlanNode result=planner.makePlan(select.getSelectClause(),null);
+        StringBuilder tree=new StringBuilder(PlanNode.printNodeTreeToString(result,true));
+        ExpressionProcessor collect=new ExpressionProcessor() {
+            public void enter(Expression node) {
+                if(node instanceof SubqueryOperator) {
+                    PlanNode nested=((SubqueryOperator)node).getSubqueryPlan();
+                    if(nested!=null)tree.append(PlanNode.printNodeTreeToString(nested,true));
+                }
+            }
+            public Expression leave(Expression node) {return node;}
+        };
+        for(SelectValue value:select.getSelectClause().getSelectValues())
+            if(!value.isWildcard())value.getExpression().traverse(collect);
+        if(select.getSelectClause().getWhereExpr()!=null)
+            select.getSelectClause().getWhereExpr().traverse(collect);
+        planTrees.put(result,tree.toString());
+        return result;
     }
     private List<TupleLiteral> run(PlanNode plan) {
         List<TupleLiteral> rows=new ArrayList<>();
@@ -44,7 +62,7 @@ public class TestChallenge2IndexProbe extends SqlTestCase {
     }
     private List<TupleLiteral> compare(String sql,boolean probeExpected) {
         PlanNode optimized=plan(sql,false);
-        String tree=PlanNode.printNodeTreeToString(optimized,true);
+        String tree=planTrees.get(optimized);
         Assert.assertEquals(tree.contains("IndexProbe["),probeExpected,tree);
         List<TupleLiteral> actual=run(optimized);
         Assert.assertEquals(actual,run(plan(sql,true)));
@@ -92,7 +110,7 @@ public class TestChallenge2IndexProbe extends SqlTestCase {
         compare("SELECT p.k,EXISTS(SELECT * FROM probe_d_c c WHERE c.k=p.k) FROM probe_d_p p ORDER BY p.k",true);
         singleOwnedPin(file);
         PlanNode broken=plan("SELECT p.k FROM probe_d_p p WHERE EXISTS(SELECT * FROM probe_d_c c WHERE c.k=p.k AND 1/(c.n-c.n)>0)",false);
-        Assert.assertTrue(PlanNode.printNodeTreeToString(broken,true).contains("IndexProbe["));
+        Assert.assertTrue(planTrees.get(broken).contains("IndexProbe["));
         RuntimeException failure=null;
         try {run(broken);}catch(RuntimeException expected){failure=expected;}
         Assert.assertNotNull(failure);
