@@ -6,8 +6,8 @@ import org.testng.annotations.Test;
 import edu.caltech.test.nanodb.sql.SqlTestCase;
 import edu.caltech.nanodb.commands.SelectCommand;
 import edu.caltech.nanodb.server.CommandResult;
-import edu.caltech.nanodb.expressions.*;
-import edu.caltech.nanodb.queryast.SelectValue;
+import edu.caltech.nanodb.expressions.TupleLiteral;
+import edu.caltech.nanodb.queryast.SelectClause;
 import edu.caltech.nanodb.indexes.IndexInfo;
 import edu.caltech.nanodb.plannodes.PlanNode;
 import edu.caltech.nanodb.queryeval.*;
@@ -31,23 +31,17 @@ public class TestChallenge2IndexProbe extends SqlTestCase {
     private PlanNode plan(String sql,boolean reference) {
         SelectCommand select=(SelectCommand)server.parseCommand(sql);
         select.getSelectClause().computeSchema(server.getStorageManager().getTableManager(),null);
-        Planner planner=reference?new SimplePlanner():new CostBasedJoinPlanner();
+        StringBuilder tree=new StringBuilder();
+        Planner planner=reference?new SimplePlanner():new CostBasedJoinPlanner() {
+            @Override protected PlanNode buildFromWhere(SelectClause query) {
+                PlanNode block=super.buildFromWhere(query);
+                tree.append(PlanNode.printNodeTreeToString(block,true));
+                return block;
+            }
+        };
         planner.setStorageManager(server.getStorageManager());
         PlanNode result=planner.makePlan(select.getSelectClause(),null);
-        StringBuilder tree=new StringBuilder(PlanNode.printNodeTreeToString(result,true));
-        ExpressionProcessor collect=new ExpressionProcessor() {
-            public void enter(Expression node) {
-                if(node instanceof SubqueryOperator) {
-                    PlanNode nested=((SubqueryOperator)node).getSubqueryPlan();
-                    if(nested!=null)tree.append(PlanNode.printNodeTreeToString(nested,true));
-                }
-            }
-            public Expression leave(Expression node) {return node;}
-        };
-        for(SelectValue value:select.getSelectClause().getSelectValues())
-            if(!value.isWildcard())value.getExpression().traverse(collect);
-        if(select.getSelectClause().getWhereExpr()!=null)
-            select.getSelectClause().getWhereExpr().traverse(collect);
+        tree.append(PlanNode.printNodeTreeToString(result,true));
         planTrees.put(result,tree.toString());
         return result;
     }
