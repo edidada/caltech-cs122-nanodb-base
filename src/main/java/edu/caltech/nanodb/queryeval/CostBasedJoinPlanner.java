@@ -63,7 +63,14 @@ public class CostBasedJoinPlanner extends AbstractPlannerImpl {
         ExpressionCostCalculator calculator = new ExpressionCostCalculator();
         calculator.add(expression);
         PlanCost cost = calculator.getCost();
-        return cost.cpuCost + 100.0 * cost.numBlockIOs + 1000.0 * cost.numLargeSeeks;
+        final int[] invocations = {0};
+        expression.traverse(new ExpressionProcessor() {
+            public void enter(Expression node) { if (node instanceof SubqueryOperator) invocations[0]++; }
+            public Expression leave(Expression node) { return node; }
+        });
+        // Unknown/empty statistics must not make starting a nested query free.
+        // This is a conservative ordering heuristic, not a calibrated timer.
+        return cost.cpuCost + 100.0 * cost.numBlockIOs + 1000.0 * cost.numLargeSeeks + 100.0 * invocations[0];
     }
 
     /** Flatten ordinary inner joins only, collecting ON restrictions. */
