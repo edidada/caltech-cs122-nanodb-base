@@ -91,4 +91,19 @@ public class TestChallenge2IndexJoin extends SqlTestCase {
         Assert.assertEquals(compare("SELECT p.k,c.n,c.v FROM ij_d_p p JOIN ij_d_c c ON c.k=p.k ORDER BY p.k,c.n",true).size(),6);
     }
 
+    public void testIndexRebindsAfterTableReopen() throws Exception {
+        fixture("ij_e");
+        TableInfo before=server.getStorageManager().getTableManager().openTable("ij_e_c");
+        String name=before.getSchema().getIndexes().iterator().next().getIndexName();
+        IndexInfo cached=server.getStorageManager().getIndexManager().openIndex(before,name);
+        server.getStorageManager().getTableManager().closeTable(before);
+        TableInfo reopened=server.getStorageManager().getTableManager().openTable("ij_e_c");
+        Assert.assertNotSame(reopened,before);
+        IndexInfo rebound=server.getStorageManager().getIndexManager().openIndex(reopened,name);
+        Assert.assertSame(rebound.getTableInfo(),reopened);
+        Assert.assertNotSame(rebound,cached);
+        Assert.assertSame(rebound.getTupleFile(),cached.getTupleFile());
+        Assert.assertEquals(compare("SELECT p.k,c.n,c.v FROM ij_e_p p JOIN ij_e_c c ON c.k=p.k ORDER BY p.k,c.n",true).size(),6);
+    }
+
 }

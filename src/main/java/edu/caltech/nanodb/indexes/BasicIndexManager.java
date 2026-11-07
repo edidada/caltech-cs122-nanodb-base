@@ -325,8 +325,16 @@ public class BasicIndexManager implements IndexManager {
         // If the index is already open, just return the cached information.
         String indexKey = tableInfo.getTableName() + "." + indexName;
         indexInfo = openIndexes.get(indexKey);
-        if (indexInfo != null)
+        if (indexInfo != null) {
+            // Closing/reopening a table replaces its TupleFile/DBFile. Keep the
+            // live index file, but never hand a new plan the closed table handle.
+            if (indexInfo.getTableInfo() != tableInfo) {
+                indexInfo = new IndexInfo(tableInfo,
+                    tableInfo.getSchema().getIndex(indexName),indexInfo.getTupleFile());
+                openIndexes.put(indexKey,indexInfo);
+            }
             return indexInfo;
+        }
 
         // Open the data file for the index; read out its type and page-size.
 

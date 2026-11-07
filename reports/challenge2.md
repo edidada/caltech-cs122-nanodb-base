@@ -89,3 +89,5 @@ run 42363749306 在 Maven 编译阶段失败：新入口把 terms 返回的 List
 10ead05 的 Maven、Gradle、官方stores与完整SF0.01基线均已通过，42364318030仍在执行矩阵。进一步新增 IndexNestedLoopJoinNode：仅普通inner连接的单个base-table右叶、确定性谓词、存在连续前导等值索引且估算CPU低于原嵌套循环时采用。右侧先绑定左行再初始化，完整本地及连接谓词仍复核，复制输出保留重复和NULL规则；不改变外连接或缺前导键等回退路径，不实现哈希连接。
 
 每次推进与清理释放左右tuple，clone建立独立动态环境，不声明排序或mark/reset。新增4组与SimplePlanner逐行差分，包含复合键/别名/残余过滤/重复行、三表自连接、OR/缺首键/外连接回退、二次initialize及duplicate，以及除零异常后单pin和索引verify。当前修改只做静态检查，尚未本地编译或执行，Q7加速必须由下一次完整矩阵实测。
+
+run 42365772310 的 Maven/Gradle 均通过，stores全量回归失败，后续基线和矩阵未执行。栈为索引命中后 HeapTupleFile.getTuple → FreeSpaceMap.pageCount → 已关闭的stores.tbl。实验原本会closeTable/openTable验证统计持久化，而BasicIndexManager.openIndexes保留旧TableInfo。缓存命中时现按传入的当前TableInfo重建IndexInfo包装，保留存活的索引tupleFile；新增显式关表重开、包装身份/索引文件身份及完整连接差分回归。保留原stores实验，不据双构建通过称Q7完成。
